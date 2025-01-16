@@ -8,6 +8,7 @@ So basically imagine a game engine placed ontop of PocketMine.
 - **PHP Version**: We use PHP 8.2.
 - **PocketMine Fork**: Swim.gg and Divinity use a fork of the NetherGames PocketMine for multi-version support.
   - Using the normal NGPM and distributed PocketMine PHP binaries should also work fine. If anything requires minor tweaks.
+  - HIGHLY recommended you use NGPM or our own fork of Pocketmine [here](https://github.com/Swim-Services/PocketMine-MP).
 - **Virions**: The virions we use for Swim.gg are listed in `.poggit.yml`. You need to download them off poggit and place them in the `virions` directory.
 
 ### Example `.poggit.yml` Configuration:
@@ -44,6 +45,7 @@ projects:
 - **Database Type**: SwimCore uses MariaDB with MySQL syntax.
 - **Required**: A database connection must be established for the server to run properly.
 - If you have no database, you can modify the code to not call the load and save component functions in the `SwimPlayer` class
+- Slight caveat, the yaml files in config and local database are formatted a bit different, local database wants things wrapped in quotes for each field.
 
 ### Configuration:
 
@@ -134,8 +136,9 @@ One of the most powerful features of SwimCore is the ability to **auto-load PHP 
 
 This repo contains only the **game engine**.
 
-- **Anticheat and Security**: Any swim.gg anticheat detections and security implementations are excluded.
-- **Raklib left out**: Unfortunately for some security reasons, we have to leave out our RakLib interface code. This means the code for rotating MOTDS is not present.
+- **Anticheat and Security**: Any swim.gg anticheat detections and major player login security implementations are excluded. However, the base anticheat framework is included!
+- **Raklib**: Our Raklib implementation is now included, which allows highly customized network protocol actions and rotating MOTDs. We highly reccomend you use NGPM or our custom fork of PM to enable this system to work properly.
+- **Discord Communicator**: Our discord integration is now included in SwimCore publicly. This can be used for linking discord accounts to players in your database and talking to the server with your bots back and forth.
 - **Database Tables**: Contains basic tables for storing player history, settings, punishments, and ranks.
 - **Punishment Commands**: Muting and banning commands are included, but without advanced features like alternate account tracking via client data collection.
 
