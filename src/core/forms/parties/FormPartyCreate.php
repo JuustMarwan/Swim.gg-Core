@@ -75,27 +75,27 @@ class FormPartyCreate
 
   private static function partyCreateForm(SwimCore $core, SwimPlayer $player): void
   {
-    $form = new CustomForm(function (SwimPlayer $player, $data) use ($core) {
+    $form = new SimpleForm(function (SwimPlayer $player, $data) use ($core) {
       if ($data === null) return;
 
-      $partySystem = $core->getSystemManager()->getPartySystem();
-      $partyName = $data[0];
-      if ($partyName == "") {
+      if ($data == 0) {
+        $partySystem = $core->getSystemManager()->getPartySystem();
         $partyName = $player->getNicks()->getNick() . "'s Party";
-      }
+        if ($partySystem->partyNameTaken($partyName)) {
+          $player->sendMessage(TextFormat::RED . "That party name is taken!");
+          return;
+        }
 
-      if ($partySystem->partyNameTaken($partyName)) {
-        $player->sendMessage(TextFormat::RED . "That party name is taken!");
-        return;
+        $partySystem->addParty(new Party($core, $partyName, $player));
       }
-
-      $partySystem->addParty(new Party($core, $partyName, $player));
       // $player->sendMessage(TextFormat::GREEN . "Created your Party " . TextFormat::YELLOW . $partyName);
       // $swimPlayer->scenesManager->setCurrentScene(new HubParty($core, $player, $swimPlayer, $party)); // no party hub scene
     });
 
-    $form->setTitle(TextFormat::GREEN . "Create Party");
-    $form->addInput(TextFormat::GREEN . "Set Party Name", $player->getNicks()->getNick() . "'s Party");
+    $form->setTitle(TextFormat::GREEN . "Create Party?");
+    $form->addButton(TextFormat::GREEN . "Yes");
+    $form->addButton(TextFormat::RED . "No");
+    // $form->addInput(TextFormat::GREEN . "Set Party Name", $player->getNicks()->getNick() . "'s Party");
     $player->sendForm($form);
   }
 

@@ -88,7 +88,7 @@ class EventBehaviorComponentManager
 
       // Check if the component should be destroyed
       if ($component->isDestroyMe()) {
-        if (SwimCore::$DEBUG) echo($component->getPlayer() . " | " . $component->getComponentName() . " | Expired\n");
+        if (SwimCore::$DEBUG) echo($component->getPlayer()->getName() . " | " . $component->getComponentName() . " | Expired\n");
         // Exit the component
         $component->exit();
         // Unset the component directly from the original array
@@ -99,6 +99,8 @@ class EventBehaviorComponentManager
 
   public function eventMessage(Event $event, string $message, mixed $args = null): void
   {
+    if (SwimCore::$DEBUG) echo("Sending message | " . $message . "\n");
+
     if (!empty($this->components)) {
       foreach ($this->components as $component) {
         if ($component->shouldUpdate()) {
@@ -132,6 +134,14 @@ class EventBehaviorComponentManager
         }
       }
     }
+  }
+
+  /**
+   * @return EventBehaviorComponent[]
+   */
+  public function getComponents(): array
+  {
+    return $this->components;
   }
 
 }

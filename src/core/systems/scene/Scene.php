@@ -72,6 +72,8 @@ abstract class Scene
 
   protected World $world;
 
+  protected bool $canCraft = false;
+
   public function __construct(SwimCore $core, string $name)
   {
     $this->core = $core;
@@ -122,6 +124,11 @@ abstract class Scene
   public final function isRanked(): bool
   {
     return $this->ranked;
+  }
+
+  public function setRanked(bool $value): void
+  {
+    $this->ranked = $value;
   }
 
   public final function setWorld(World $world): void
@@ -271,45 +278,49 @@ abstract class Scene
   public final function sceneAnnouncement(string $msg): void
   {
     foreach ($this->players as $player) {
-      $player->sendMessage($msg);
+      if ($player->isOnline()) $player->sendMessage($msg);
     }
   }
 
   public function sceneBossBar(string $title, float $healthPercent, bool $darkenScreen = false, int $color = BossBarColor::PURPLE, int $overlay = 0): void
   {
     foreach ($this->players as $player) {
-      $player->removeBossBar(); // refresh
-      $packet = BossEventPacket::show($player->getId(), $title, $healthPercent, $darkenScreen, $color, $overlay);
-      $player->getNetworkSession()->sendDataPacket($packet);
+      if ($player->isOnline()) {
+        $player->removeBossBar(); // refresh
+        $packet = BossEventPacket::show($player->getId(), $title, $healthPercent, $darkenScreen, $color, $overlay);
+        $player->getNetworkSession()->sendDataPacket($packet);
+      }
     }
   }
 
   public function removeBossBarForAll(): void
   {
     foreach ($this->players as $player) {
-      $packet = BossEventPacket::hide($player->getId());
-      $player->getNetworkSession()->sendDataPacket($packet);
+      if ($player->isOnline()) {
+        $packet = BossEventPacket::hide($player->getId());
+        $player->getNetworkSession()->sendDataPacket($packet);
+      }
     }
   }
 
   public function sceneJukeBoxMessage(string $message): void
   {
     foreach ($this->players as $player) {
-      $player->sendJukeboxPopup($message);
+      if ($player->isOnline()) $player->sendJukeboxPopup($message);
     }
   }
 
   public function sceneTitle(string $title, string $subtitle = "", int $fadeIn = -1, int $stay = -1, int $fadeOut = -1): void
   {
     foreach ($this->players as $player) {
-      $player->sendTitle($title, $subtitle, $fadeIn, $stay, $fadeOut);
+      if ($player->isOnline()) $player->sendTitle($title, $subtitle, $fadeIn, $stay, $fadeOut);
     }
   }
 
   public function sceneSound(string $soundName, int $volume = 2, int $pitch = 1): void
   {
     foreach ($this->players as $player) {
-      ServerSounds::playSoundToPlayer($player, $soundName, $volume, $pitch);
+      if ($player->isOnline()) ServerSounds::playSoundToPlayer($player, $soundName, $volume, $pitch);
     }
   }
 
@@ -442,6 +453,11 @@ abstract class Scene
   public function isFFA(): bool
   {
     return false;
+  }
+
+  public function allowCrafting(): bool
+  {
+    return $this->canCraft;
   }
 
 }

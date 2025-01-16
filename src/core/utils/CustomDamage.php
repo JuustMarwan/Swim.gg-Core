@@ -58,4 +58,69 @@ class CustomDamage
     }
   }
 
+  public static function calculateFinalDamageWithoutCrits(EntityDamageEvent $event, bool $critEnabled = false): float
+  {
+    // Copy the modifiers to avoid changing the event
+    $mods = $event->getModifiers();
+
+    // Handle crit logic
+    $crit = (($mods[EntityDamageEvent::MODIFIER_CRITICAL] ?? 0) != 0) && $critEnabled;
+
+    // Simulate removing armor resistance crit
+    if (isset($mods[EntityDamageEvent::MODIFIER_ARMOR])) {
+      $mods[EntityDamageEvent::MODIFIER_ARMOR] *= ($event->getBaseDamage() / ($event->getBaseDamage() + ($mods[EntityDamageEvent::MODIFIER_CRITICAL] ?? 0)));
+    }
+
+    // Disable crit in the copied modifiers
+    $mods[EntityDamageEvent::MODIFIER_CRITICAL] = $crit ? 0.5 : 0.0;
+
+    // Round the final damage (down for non-projectile, up for projectile)
+    $finalDamage = $event->getBaseDamage() + array_sum($mods);
+
+    if ($event->getCause() != EntityDamageEvent::CAUSE_PROJECTILE) {
+      $finalDamage = floor($finalDamage); // round down
+    } else {
+      $finalDamage = ceil($finalDamage); // round up
+    }
+
+    // Handle absorption calculation if needed
+    if (isset($mods[EntityDamageEvent::MODIFIER_ABSORPTION]) && $event->getEntity()->getAbsorption() != 0) {
+      $absorption = $event->getEntity()->getAbsorption();
+
+      // Remove armor resistance crit from absorption calculation
+      if (isset($mods[EntityDamageEvent::MODIFIER_ARMOR])) {
+        $mods[EntityDamageEvent::MODIFIER_ARMOR] = $mods[EntityDamageEvent::MODIFIER_ARMOR] * ($event->getBaseDamage()
+            / ($event->getBaseDamage() + ($mods[EntityDamageEvent::MODIFIER_CRITICAL] ?? 0)));
+      }
+
+      // These last 2 parts might be useless
+
+      // Disable crit from absorption calculation
+      $mods[EntityDamageEvent::MODIFIER_CRITICAL] = $crit ? 0.5 : 0.0;
+
+      // Remove absorption modifier from calculation
+      $mods[EntityDamageEvent::MODIFIER_ABSORPTION] = 0.0;
+
+      // Apply absorption calculations
+      /*
+      $baseAbsorptionDamage = $event->getBaseDamage() + array_sum($mods);
+      $baseAbsorptionDamage = ($event->getCause() != EntityDamageEvent::CAUSE_PROJECTILE) ? floor($baseAbsorptionDamage) : ceil($baseAbsorptionDamage);
+
+      // Apply absorption logic without modifying the event
+      if ($absorption - $baseAbsorptionDamage > 0) {
+        $absorption -= $baseAbsorptionDamage;
+      } else {
+        // Simulate absorption running out
+        $absorption = 0.0;
+      }
+      */
+
+      // Final damage adjusted by absorption
+      $finalDamage = max(0, $finalDamage - $event->getModifier(EntityDamageEvent::MODIFIER_ABSORPTION));
+    }
+
+    return max(0, $finalDamage);
+  }
+
+
 }

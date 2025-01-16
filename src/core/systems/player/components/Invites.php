@@ -46,7 +46,7 @@ class Invites extends Component
     if ($type !== 'duelInvites' && $type !== 'partyInvites') {
       return false;
     }
-    if (strtolower($this->swimPlayer->getSceneHelper()->getScene()->getSceneName()) != "hub") {
+    if (!$this->swimPlayer->isInScene("Hub")) {
       return false;
     }
     if (!$this->swimPlayer->getSettings()->getToggle($type)) {
@@ -61,6 +61,8 @@ class Invites extends Component
   // should probably check canSendInvite('duelInvites') before doing this
   public function duelInvitePlayer(SwimPlayer $sender, string $mode, string $map = 'random'): void
   {
+    if (!$this->swimPlayer->isOnline() || !$sender->isOnline()) return; // to avoid a rare stupid login exception that crashes the whole server
+
     if (!$this->settings->getToggle('duelInvites')) {
       $sender->sendMessage(TextFormat::RED . "This player has duel invites disabled!");
       return;
@@ -73,7 +75,8 @@ class Invites extends Component
       $this->duelInvites[$senderName] = ['mode' => $mode, 'map' => $map];
       $name = $sender->getNicks()->getNick();
       $sender->sendMessage(TextFormat::GREEN . "Sent " . $this->swimPlayer->getNicks()->getNick() . " a " . $mode . " duel request on map " . $map);
-      $this->swimPlayer->sendMessage(TextFormat::GREEN . $name . TextFormat::YELLOW . " has sent you a " . TextFormat::AQUA . $mode . TextFormat::YELLOW . " duel request!");
+      $msg = TextFormat::GREEN . $name . TextFormat::YELLOW . " has sent you a " . TextFormat::AQUA . $mode . TextFormat::YELLOW . " duel request on map: " . TextFormat::GREEN . ucfirst($map);
+      $this->swimPlayer->sendMessage($msg);
       ServerSounds::playSoundToPlayer($this->swimPlayer, "mob.chicken.plop", 2, 1);
     }
   }

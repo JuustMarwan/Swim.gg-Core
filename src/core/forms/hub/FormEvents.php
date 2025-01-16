@@ -2,11 +2,9 @@
 
 namespace core\forms\hub;
 
-use core\maps\info\SurvivalGamesMapInfo;
 use core\SwimCore;
 use core\systems\event\EventSystem;
 use core\systems\event\ServerGameEvent;
-use core\systems\event\SurvivalGamesEvent;
 use core\systems\player\components\Rank;
 use core\systems\player\SwimPlayer;
 use jojoe77777\FormAPI\CustomForm;
@@ -96,20 +94,22 @@ class FormEvents
 
       $mode = $data[0];
 
-      // first mode index 0 is modded sg
+      // first mode index 0 is modded sg (at least in swimgg private)
       if ($mode == 0) {
         self::moddedSGForm($player, $core, $eventSystem);
       }
     });
 
     $form->setTitle(TextFormat::GREEN . "Create an Event");
-    $form->addDropdown("Select Event Mode", ["Modded SG"], 0);
+    $form->addDropdown("Select Event Mode", ["Placeholder"] /* would be modded sg*/, 0);
 
     $swimPlayer->sendForm($form);
   }
 
   private static function moddedSGForm(SwimPlayer $swimPlayer, SwimCore $core, EventSystem $eventSystem): void
   {
+    /* example code below from swimgg repo:
+
     // get the available sg maps we can select from
     $maps = $core->getSystemManager()->getMapsData()->getAvailableSGMaps();
     if (empty($maps)) {
@@ -157,6 +157,7 @@ class FormEvents
     $form->addDropdown("Select Map", array_keys($maps), 0);
     $form->addSlider("Team Size", 1, 4);
     $swimPlayer->sendForm($form);
+    */
   }
 
 }

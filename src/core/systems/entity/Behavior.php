@@ -2,42 +2,41 @@
 
 namespace core\systems\entity;
 
-use core\systems\entity\entities\CustomEntity;
+use core\systems\entity\entities\Actor;
 use core\systems\scene\Scene;
-use pocketmine\entity\Entity;
 
 abstract class Behavior
 {
 
-  protected Entity|CustomEntity $parent;
+  protected Actor $parent;
   protected ?Scene $scene;
 
-  public function __construct(Entity|CustomEntity $customEntity, ?Scene $scene = null)
+  public function __construct(Actor $actor, ?Scene $scene = null)
   {
-    $this->parent = $customEntity;
+    $this->parent = $actor;
     $this->scene = $scene;
   }
 
-  abstract public function init();
+  abstract public function init(): void;
 
-  abstract public function updateSecond();
+  abstract public function updateSecond(): void;
 
-  abstract public function updateTick();
+  abstract public function updateTick(): void;
 
-  abstract public function exit();
+  abstract public function exit(): void;
 
   /**
-   * @return Entity|CustomEntity
+   * @return Actor
    */
-  public function getParent(): Entity|CustomEntity
+  public function getParent(): Actor
   {
     return $this->parent;
   }
 
   /**
-   * @param CustomEntity|Entity $parent
+   * @param Actor $parent
    */
-  public function setParent(Entity|CustomEntity $parent): void
+  public function setParent(Actor $parent): void
   {
     $this->parent = $parent;
   }

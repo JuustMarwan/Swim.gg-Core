@@ -16,6 +16,36 @@ use pocketmine\utils\TextFormat as TF;
 class FormDuels
 {
 
+  // for choosing ranked and unranked queue
+  public static function duelBaseForm(SwimPlayer $player): void
+  {
+    self::duelSelectionForm($player); // since this is just swimcore public, we just have one queue
+
+    /*
+    if (!SwimCore::$RANKED) {
+      self::duelSelectionForm($player); // if ranked is off then only have normal duel selection form
+      return;
+    }
+
+    $form = new SimpleForm(function (SwimPlayer $player, $data) {
+      if ($data === null) {
+        return;
+      }
+
+      if ($data == 0) {
+        self::duelSelectionForm($player);
+      } else if ($data == 1) {
+        self::rankedDuelSelectionForm($player);
+      }
+    });
+
+    $form->setTitle(TF::GREEN . "Join Queue");
+    $form->addButton(TF::GREEN . "Duels", 0, "textures/items/diamond");
+    $form->addButton(TF::YELLOW . "Ranked Duels", 0, "textures/items/gold_ingot");
+    $player->sendForm($form);
+    */
+  }
+
   public static function duelSelectionForm(SwimPlayer $player): void
   {
     $form = new SimpleForm(function (SwimPlayer $player, $data) {
@@ -44,7 +74,6 @@ class FormDuels
     $form->addButton("§4Nodebuff " . self::formatModePlayerCounts('nodebuff', Nodebuff::class, $queue, $sceneSystem), 0, Nodebuff::getIcon());
     $form->addButton("§4Boxing " . self::formatModePlayerCounts('boxing', Boxing::class, $queue, $sceneSystem), 0, Boxing::getIcon());
     $form->addButton("§4Midfight " . self::formatModePlayerCounts('midfight', Midfight::class, $queue, $sceneSystem), 0, Midfight::getIcon());
-    $form->addButton("§4BUHC " . self::formatModePlayerCounts('buhc', BUHC::class, $queue, $sceneSystem), 0, BUHC::getIcon());
     $player->sendForm($form);
   }
 

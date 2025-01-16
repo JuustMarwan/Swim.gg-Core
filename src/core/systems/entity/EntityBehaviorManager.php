@@ -2,6 +2,7 @@
 
 namespace core\systems\entity;
 
+use core\SwimCore;
 use pocketmine\entity\Entity;
 
 class EntityBehaviorManager
@@ -30,13 +31,16 @@ class EntityBehaviorManager
 
   public function init(): void
   {
+    if (empty($this->behaviorMap)) return;
     foreach ($this->behaviorMap as $component) {
       $component->init();
+      if (SwimCore::$DEBUG) echo("Component initing: " . $this->parent->getNameTag() . "\n");
     }
   }
 
   public function updateSecond(): void
   {
+    if (empty($this->behaviorMap)) return;
     foreach ($this->behaviorMap as $component) {
       $component->updateSecond();
     }
@@ -44,6 +48,7 @@ class EntityBehaviorManager
 
   public function updateTick(): void
   {
+    if (empty($this->behaviorMap)) return;
     foreach ($this->behaviorMap as $component) {
       $component->updateTick();
     }
@@ -51,8 +56,10 @@ class EntityBehaviorManager
 
   public function exit(): void
   {
+    if (empty($this->behaviorMap)) return;
     foreach ($this->behaviorMap as $component) {
       $component->exit();
+      if (SwimCore::$DEBUG) echo("Component exiting: " . $this->parent->getNameTag() . "\n");
     }
   }
 

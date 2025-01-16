@@ -41,7 +41,7 @@ class KnockerBoxExplosion extends Explosion
     $motionVec = $this->target->getMotion()->addVector($motion->multiply($impact));
     $motionVec->y /= 3;
     $motionVec->y += 0.75;
-    $this->target->setMotion($motionVec);
+    $this->target->setMotion($motionVec, true);
 
     // default 2 seconds of no fall
     if ($this->noFall) {

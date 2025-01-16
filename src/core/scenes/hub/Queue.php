@@ -4,15 +4,10 @@ namespace core\scenes\hub;
 
 use core\custom\behaviors\player_event_behaviors\MaxDistance;
 use core\custom\prefabs\hub\HubEntities;
-use core\scenes\duel\BattleRush;
-use core\scenes\duel\BedFight;
 use core\scenes\duel\Boxing;
-use core\scenes\duel\Bridge;
-use core\scenes\duel\BUHC;
 use core\scenes\duel\Duel;
 use core\scenes\duel\Midfight;
 use core\scenes\duel\Nodebuff;
-use core\scenes\duel\Skywars;
 use core\SwimCore;
 use core\systems\map\MapsData;
 use core\systems\player\SwimPlayer;
@@ -33,6 +28,10 @@ use pocketmine\utils\TextFormat;
 use pocketmine\world\World;
 use ReflectionException;
 
+// To anyone reading this from the SwimCore public repo, I would honestly recommend making your own Queue system to fit your server's needs best.
+// Making the queue system just another scene is cool, but ended up not scaling super well and has some tech debt to it depending on what you want.
+// Like everything in this repo, just use the majority of this code as a learning tool and not an as-is solution for every type of server right away.
+// The main thing to take away from this class is it shows how to dynamically create + register and add players into duel scenes.
 class Queue extends Scene
 {
 
@@ -76,7 +75,7 @@ class Queue extends Scene
     $this->initTeams();
   }
 
-  private function initTeams()
+  private function initTeams(): void
   {
     foreach (Duel::$MODES as $mode) {
       $this->teamManager->makeTeam($mode, TextFormat::RESET, true);
@@ -86,14 +85,18 @@ class Queue extends Scene
   /**
    * @throws ScoreFactoryException
    */
-  private function checkQueues(): void
+  protected function checkQueues(): void
   {
     foreach ($this->teamManager->getTeams() as $team) {
+      $team->pruneOffline(); // prune it first for safety
       $size = $team->getTeamSize();
-      if ($size >= 2 || (SwimCore::$DEBUG && $size >= 1)) { // can self queue in debug mode
+      $requiredSize = $team->getScore();
+      if ($requiredSize > 2) continue; // avoid queuing games that need a team size of over 2 as we need more special queue logic for that
+      if ($size >= $requiredSize || (SwimCore::$DEBUG && $size >= 1)) { // can self queue in debug mode
         // we can start the duel if the mode has an available map
-        if ($this->mapsData->modeHasAvailableMap($team->getTeamName())) {
+        if ($this->mapsData->modeHasAvailableMap(strtolower($team->getTeamName()))) {
           $this->startDuel($team);
+          break; // to prevent a weird bug that was caused when players join the queue in the same tick. This is shoving the problem under the bed, but it should be fine now.
         }
       }
     }
@@ -117,7 +120,12 @@ class Queue extends Scene
     if (SwimCore::$DEBUG && isset($players[0])) { // in debug, you can queue your self to solo test games
       $this->publicDuelStart($players[0], $players[0], $team->getTeamName());
     } elseif (isset($players[0]) && isset($players[1])) {
-      $this->publicDuelStart($players[0], $players[1], $team->getTeamName());
+      // stupid fix to make sure they are online before doing a queue
+      if ($players[0] instanceof SwimPlayer && $players[1] instanceof SwimPlayer) {
+        if ($players[0]->isOnline() && $players[1]->isOnline()) {
+          $this->publicDuelStart($players[0], $players[1], $team->getTeamName());
+        }
+      }
     }
   }
 
@@ -230,18 +238,13 @@ class Queue extends Scene
         $maxPlayers = $swimPlayer->getServer()->getMaxPlayers();
         $ping = $swimPlayer->getNslHandler()->getPing();
         $time = TimeHelper::digitalClockFormatter($time);
-        $indent = "  ";
-        // define lines
-        ScoreFactory::setScoreLine($swimPlayer, 1, "  =============   ");
-        ScoreFactory::setScoreLine($swimPlayer, 2, $indent . "§bOnline: §f" . $onlineCount . "§7 / §3" . $maxPlayers . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 3, $indent . "§bPing: §3" . $ping . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 4, $indent . "§bQueued: §3" . $this->sceneSystem->getQueuedCount() . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 5, $indent . "§bIn Duel: §3" . $this->sceneSystem->getInDuelsCount() . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 6, $indent . "§bQueuing: " . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 7, $indent . "§3" . ucfirst($mode) . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 8, $indent . "§b" . $time . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 9, $indent . "§bdiscord.gg/§3swim" . $indent);
-        ScoreFactory::setScoreLine($swimPlayer, 10, "  =============  ");
+        $line = 0;
+        ScoreFactory::setScoreLine($swimPlayer, ++$line, " §bOnline: §f" . $onlineCount . "§7 / §3" . $maxPlayers);
+        ScoreFactory::setScoreLine($swimPlayer, ++$line, " §bPing: §3" . $ping);
+        ScoreFactory::setScoreLine($swimPlayer, ++$line, " §bQueued: §3" . $this->sceneSystem->getQueuedCount());
+        ScoreFactory::setScoreLine($swimPlayer, ++$line, " §bIn Duel: §3" . $this->sceneSystem->getInDuelsCount());
+        ScoreFactory::setScoreLine($swimPlayer, ++$line, " §bQueuing: §3" . ucfirst($mode));
+        ScoreFactory::setScoreLine($swimPlayer, ++$line, " §b" . $time);
         // send lines
         ScoreFactory::sendLines($swimPlayer);
       } catch (ScoreFactoryException $e) {
@@ -277,7 +280,7 @@ class Queue extends Scene
 
   private function queueTag(SwimPlayer $swimPlayer): void
   {
-    // $swimPlayer->genericNameTagHandling();
+    $swimPlayer->genericNameTagHandling();
     $swimPlayer->getCosmetics()->tagNameTag();
     $teamName = $this->getPlayerTeam($swimPlayer)?->getTeamName();
     if (!$teamName) return;

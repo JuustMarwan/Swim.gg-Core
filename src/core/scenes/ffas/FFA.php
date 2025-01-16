@@ -3,6 +3,7 @@
 namespace core\scenes\ffas;
 
 use core\scenes\PvP;
+use core\systems\player\components\Rank;
 use core\systems\player\SwimPlayer;
 use core\utils\CoolAnimations;
 use core\utils\InventoryUtil;
@@ -108,7 +109,7 @@ abstract class FFA extends PvP
         if ($useTeamColorForKillStreak) {
           $color = $this->getPlayerTeam($attacker)?->getTeamColor() ?? "";
         } else {
-          $color = ($attacker->getCosmetics()?->getNameColor() ?? "");
+         $color = ($attacker->getCosmetics()?->getNameColor() ?? "");
         }
         $name = $color . ($attacker->getNicks()?->getNick() ?? $attacker->getName());
         $this->sceneAnnouncement($name . TextFormat::GREEN . " is on a " . $kills . " Kill Streak!");
@@ -148,8 +149,8 @@ abstract class FFA extends PvP
       $player->setNameTag(TextFormat::GRAY . $player->getNicks()->getNick());
     } else {
       $player->getCosmetics()->tagNameTag();
-      // $color = Rank::getRankColor($player->getRank()->getRankLevel());
-      // $player->setNameTag($color . $player->getName());
+      $color = Rank::getRankColor($player->getRank()->getRankLevel());
+      $player->setNameTag($color . $player->getName());
     }
   }
 

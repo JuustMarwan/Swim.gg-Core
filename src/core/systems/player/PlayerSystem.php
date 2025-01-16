@@ -2,6 +2,7 @@
 
 namespace core\systems\player;
 
+use core\SwimCore;
 use core\systems\System;
 use pocketmine\player\Player;
 
@@ -23,8 +24,9 @@ class PlayerSystem extends System
   // this is useless now
   public function getSwimPlayer(Player $player): ?SwimPlayer
   {
-    if (isset($this->players[$player->getId()])) {
-      return $this->players[$player->getId()];
+    $id = $player->getId();
+    if (isset($this->players[$id])) {
+      return $this->players[$id];
     }
     return null;
   }
@@ -33,14 +35,17 @@ class PlayerSystem extends System
   public function registerPlayer(Player $player): void
   {
     $this->players[$player->getId()] = $player;
+    if(SwimCore::$DEBUG) echo("Registering player {$player->getName()}\n");
   }
 
   // this can just use a normal player object because the key is the ID of the player entity
   private function unregisterPlayer(Player $player): void
   {
-    if (isset($this->players[$player->getId()])) {
-      $this->players[$player->getId()]->exit();
-      unset($this->players[$player->getId()]);
+    $id = $player->getId();
+    if (isset($this->players[$id])) {
+      $this->players[$id]->exit();
+      unset($this->players[$id]);
+      if(SwimCore::$DEBUG) echo("Unregistering player {$player->getName()}\n");
     }
   }
 

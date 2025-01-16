@@ -77,4 +77,48 @@ abstract class MapPool
     return null;
   }
 
+  /**
+   * Helper to remove duplicates like "forest1", "forest2", and just show "forest".
+   *
+   * @return array Returns an array of unique map base names.
+   */
+  public function getUniqueMapBaseNames(): array
+  {
+    $uniqueNames = [];
+
+    foreach ($this->maps as $mapName => $mapInfo) {
+      // Strip any trailing digits from the map name (e.g., forest1 -> forest)
+      $baseName = preg_replace('/\d+$/', '', $mapName);
+      if (!in_array($baseName, $uniqueNames)) {
+        $uniqueNames[] = $baseName;
+      }
+    }
+
+    return $uniqueNames;
+  }
+
+  /**
+   * Helper to get the first inactive map that starts with a given string (e.g., "forest").
+   *
+   * @param string $baseName The base name of the map to search for.
+   * @return MapInfo|null Returns the first inactive map that matches the base name, or null if none found.
+   */
+  public function getFirstInactiveMapByBaseName(string $baseName): ?MapInfo
+  {
+    foreach ($this->maps as $mapName => $mapInfo) {
+      if (str_starts_with($mapName, $baseName) && !$mapInfo->mapIsActive()) {
+        return $mapInfo;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * @return MapInfo[]
+   */
+  public function getMaps(): array
+  {
+    return $this->maps;
+  }
+
 }

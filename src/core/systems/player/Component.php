@@ -56,4 +56,11 @@ abstract class Component
   {
   }
 
+  public function __destruct()
+  {
+    if (SwimCore::$DEBUG) {
+      echo("Component destructed from {$this->swimPlayer->getName()}\n");
+    }
+  }
+
 }

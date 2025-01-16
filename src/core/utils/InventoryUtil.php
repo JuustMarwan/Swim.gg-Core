@@ -41,6 +41,7 @@ class InventoryUtil
   {
     self::clearInventory($player);
     self::clearXP($player);
+    $player->setMaxHealth(20);
     $player->getEffects()->clear();
     $player->setHealth($player->getMaxHealth());
     $player->setAbsorption(0.0);
@@ -196,6 +197,79 @@ class InventoryUtil
   public static function safeSetItem(Inventory $inv, int $slot, Item $item): void
   {
     $inv->slotExists($slot) ? $inv->setItem($slot, $item) : $inv->addItem($item);
+  }
+
+  public static function hasAmount(Inventory $inventory, int $amount, Item $item): bool
+  {
+    $count = 0;
+    $id = $item->getTypeId();
+
+    foreach ($inventory->getContents() as $invItem) {
+      if ($invItem->getTypeId() == $id) {
+        $count += $invItem->getCount();
+      }
+    }
+
+    return $count >= $amount;
+  }
+
+  /**
+   * This method removes up to $amount of items matching $item's type from the given inventory.
+   * If it does not find enough items across all slots, it will remove as many as possible.
+   *
+   * @param Inventory $inventory The inventory to remove items from.
+   * @param int $amount The total number of items to remove.
+   * @param Item $item An item instance whose type will be matched during removal.
+   */
+  public static function takeItems(Inventory $inventory, int $amount, Item $item): void
+  {
+    // Track how many items we have removed so far
+    $removed = 0;
+
+    // Get the target type ID from the provided $item
+    $targetTypeId = $item->getTypeId();
+
+    // Retrieve the current inventory contents
+    $contents = $inventory->getContents();
+
+    // Iterate over each slot in the inventory
+    foreach ($contents as $slot => $invItem) {
+      // Check if this slot's item has the same type as our target
+      if ($invItem->getTypeId() === $targetTypeId) {
+        // The number of items in this slot
+        $slotCount = $invItem->getCount();
+
+        // How many we still need to remove to reach $amount
+        $need = $amount - $removed;
+
+        // We can only remove the minimum of what we need or what the slot has
+        $toRemove = min($slotCount, $need);
+
+        // Increase our running total of removed items
+        $removed += $toRemove;
+
+        // Update the slot to have the new (reduced) item count
+        $invItem->setCount($slotCount - $toRemove);
+
+        // Write the updated item back to the inventory
+        $inventory->setItem($slot, $invItem);
+
+        // If we've removed enough items, we can stop
+        if ($removed >= $amount) {
+          return;
+        }
+      }
+    }
+  }
+
+  public static function getFirstOpenSlot(Inventory $inventory): int
+  {
+    $airID = VanillaItems::AIR()->getTypeId();
+    foreach ($inventory->getContents(true) as $slot => $invItem) {
+      if ($invItem->getTypeId() === $airID) return $slot;
+    }
+
+    return -1;
   }
 
 }

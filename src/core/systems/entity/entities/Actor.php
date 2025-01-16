@@ -2,6 +2,7 @@
 
 namespace core\systems\entity\entities;
 
+use core\SwimCore;
 use core\systems\entity\EntityBehaviorManager;
 use core\systems\player\SwimPlayer;
 use core\systems\scene\Scene;
@@ -82,6 +83,8 @@ class Actor extends Living
 
     // register
     SwimCoreInstance::getInstance()->getSystemManager()->getEntitySystem()->registerEntity($this);
+
+    if (SwimCore::$DEBUG) echo("Created Actor {$this->getNameTag()}\n");
   }
 
   public function getEntityBehaviorManager(): EntityBehaviorManager
@@ -160,6 +163,7 @@ class Actor extends Living
 
   public function init(): void
   {
+    if (SwimCore::$DEBUG) echo("Actor initing " . $this->getNameTag() . "\n");
     $this->entityBehaviorManager->init();
     if ($this->anchored) {
       $this->getAttributeMap()->add(new Attribute(Attribute::KNOCKBACK_RESISTANCE, 1, 1, 1, true));
@@ -198,6 +202,7 @@ class Actor extends Living
 
   public function exit(): void
   {
+    if (SwimCore::$DEBUG) echo("Actor exiting " . $this->getNameTag() . "\n");
     $this->entityBehaviorManager->exit();
   }
 
@@ -225,7 +230,7 @@ class Actor extends Living
     $this->lifeTime = $lifeTime;
   }
 
-  // this is fucking insane why does Human class have to do this
+  // this is for eye level
   public function getOffsetPosition(Vector3 $vector3): Vector3
   {
     if ($this->hasServerSidedSkin) {
@@ -284,6 +289,11 @@ class Actor extends Living
         }
       }
     }
+  }
+
+  public function setOnFire(int $seconds): void
+  {
+    // we don't want to be able to set them on fire so we override this as a nop
   }
 
   protected function initEntity(CompoundTag $nbt): void

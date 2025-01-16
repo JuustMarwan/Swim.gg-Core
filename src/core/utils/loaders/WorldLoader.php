@@ -2,14 +2,19 @@
 
 namespace core\utils\loaders;
 
+use core\listeners\WorldListener;
 use core\utils\FileUtil;
 use pocketmine\Server;
+use ReflectionException;
 
 class WorldLoader
 {
 
   private static array $worlds;
 
+  /**
+   * @throws ReflectionException
+   */
   public static function loadWorlds(string $folder): void
   {
     // get our worlds path
@@ -33,9 +38,11 @@ class WorldLoader
         echo("ERROR, Null world: " . $worldName . "\n");
       } else {
         echo("Loaded world from SavedWorlds: " . $worldName . "\n");
+        WorldListener::disableWorldLogging($world);
       }
       $world->setTime(1600);
       $world->stopTime();
+      $world->setDifficulty(3); // hard to make it so regen is not super high
     }
     $worldManager->setAutoSave(false); // disable worlds saving chunk changes on shutdown (be careful)
   }

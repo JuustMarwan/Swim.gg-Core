@@ -35,7 +35,7 @@ class FormPartyManagePlayers
       $selected = $buttons[$playerName];
 
       // if invited player still online and in the hub and in party then manage them
-      if ($selected instanceof SwimPlayer && $selected->isConnected() && $selected->getSceneHelper()->getParty() === $party) {
+      if ($selected instanceof SwimPlayer && $selected->isConnected() && $selected->getSceneHelper()?->getParty() === $party) {
         self::manageForm($core, $selected, $swimPlayer, $party);
       }
     });
@@ -43,7 +43,7 @@ class FormPartyManagePlayers
     // add the players to the form
     foreach ($availablePlayers as $p) {
       $buttons[$p->getName()] = $p;
-      $form->addButton($p->getNicks()->getNick());
+      $form->addButton($p->getNicks()?->getNick());
     }
 
     $form->setTitle(TextFormat::GREEN . "Manage Players " . $party->formatSize());
@@ -59,13 +59,13 @@ class FormPartyManagePlayers
         switch ($data) {
           case 0:
             $party->removePlayerFromParty($selected);
-            $party->partyMessage(TextFormat::YELLOW . $swimPlayer->getNicks()->getNick() . TextFormat::GREEN . " kicked " .
-              TextFormat::YELLOW . $selected->getNicks()->getNick() . TextFormat::GREEN . " from the party! " . $party->formatSize());
+            $party->partyMessage(TextFormat::YELLOW . $swimPlayer->getNicks()?->getNick() . TextFormat::GREEN . " kicked " .
+              TextFormat::YELLOW . $selected->getNicks()?->getNick() . TextFormat::GREEN . " from the party! " . $party->formatSize());
             $selected->sendMessage(TextFormat::YELLOW . "You were removed from the party");
             break;
           case 1:
             $party->setPartyLeader($selected);
-            $party->partyMessage(TextFormat::YELLOW . $selected->getNicks()->getNick() . TextFormat::GREEN . " is now the party leader!");
+            $party->partyMessage(TextFormat::YELLOW . $selected->getNicks()?->getNick() . TextFormat::GREEN . " is now the party leader!");
             $party->setHubKits();
             break;
           case 2:
@@ -76,7 +76,7 @@ class FormPartyManagePlayers
     });
 
     $form->setTitle("Select Action");
-    $form->setContent(TextFormat::YELLOW . "Managing: " . TextFormat::GREEN . $selected->getNicks()->getNick());
+    $form->setContent(TextFormat::YELLOW . "Managing: " . TextFormat::GREEN . $selected->getNicks()?->getNick());
     $form->addButton(TextFormat::RED . "Remove From Party");
     $form->addButton(TextFormat::RED . "Promote to Owner");
     $form->addButton(TextFormat::YELLOW . "Back");

@@ -66,7 +66,6 @@ class Boxing extends Duel
       $event->cancel();
       return;
     }
-    $team = $this->getPlayerTeam($attacker);
 
     // no damage
     $event->setModifier(-999, 0);

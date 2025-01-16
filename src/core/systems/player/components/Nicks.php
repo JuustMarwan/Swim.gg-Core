@@ -77,6 +77,26 @@ class Nicks extends Component
         $name = Words::$verbs[array_rand(Words::$verbs)] . Words::$nouns[ucfirst(array_rand(Words::$nouns))] . rand(1, 99);
       }
     } while (strlen($name) > $longestName);
+
+    $lowerAll = rand(0, 1); // 50% chance to lower all
+    if ($lowerAll) $name = strtolower($name);
+    $ucFirst = rand(0, 1); // 50% chance to then uppercase the first letter
+    if ($ucFirst) $name = ucfirst($name);
+    $upAll = rand(0, 4); // 1 in 5 chance of being upper case
+    if ($upAll == 0) $name = strtoupper($name);
+
+    $shouldPrepend = rand(0, 3); // chance of prepending an 'x' or a 'z' or an 'its' or an 'itz' to look gamer style if we have a name that isn't too long
+    $len = strlen($name);
+    if ($shouldPrepend == 0 && $len < $longestName) {
+      $pre = rand(0, 1) ? "x" : "z";
+      $name = $pre . ucfirst($name);
+    } else if ($shouldPrepend == 1 && $len < 9) {
+      $pre = rand(0, 1) ? "its" : "itz";
+      $upper = rand(0, 1);
+      if ($upper) $pre = ucfirst($pre);
+      $name = $pre . ucfirst($name);
+    }
+
     $this->hasNick = true;
     $this->nick = $name;
     $this->swimPlayer->setDisplayName($this->nick);

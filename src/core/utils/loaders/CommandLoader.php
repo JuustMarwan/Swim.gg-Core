@@ -16,11 +16,13 @@ class CommandLoader
 
   private SwimCore $core;
   private Server $server;
+  private bool $isHub;
 
   public function __construct(SwimCore $core)
   {
     $this->core = $core;
     $this->server = $core->getServer();
+    $this->isHub = $this->core->getRegionInfo()->isHub();
   }
 
   /**
@@ -59,11 +61,19 @@ class CommandLoader
 
         // Construct the full class name with the appropriate namespace
         $fullClassName = '\\core\\commands\\' . $relativePath;
-        echo "Registering Command: " . $fullClassName . "\n";
 
         if (class_exists($fullClassName)) {
+          // some commands are not to be loaded if we are the hub server
+          if ($this->isHub) {
+            if (isset($fullClassName::$disableOnHub) && $fullClassName::$disableOnHub === true) {
+              echo "Not loading Command: " . $fullClassName . ", disabled on hub\n";
+              continue;
+            }
+          }
+          // otherwise, load
           $script = new $fullClassName($this->core);
           if ($script instanceof Command) {
+            echo "Registering Command: " . $fullClassName . "\n";
             $this->registerCommand($script);
           }
         } else {
@@ -76,7 +86,7 @@ class CommandLoader
   // get rid of whisper, clear, me, vanilla banning, kill, etc
   private function unloadVanillaCommands(): void
   {
-    $commandNames = array("kill", "me", "w", "whisper", "clear", "ban", "stop", "kick");
+    $commandNames = array("kill", "me", "w", "whisper", "clear", "ban", "stop", "kick", "pardon", "unban");
     foreach ($commandNames as $cmd) {
       $this->unregisterCommand($cmd);
     }

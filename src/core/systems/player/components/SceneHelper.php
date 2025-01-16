@@ -108,7 +108,6 @@ class SceneHelper extends Component
   /**
    * @brief Sets the scene the player is in
    * @return bool if worked
-   * @throws JsonException
    * @throws ScoreFactoryException
    */
   public function setNewScene(string $sceneName): bool

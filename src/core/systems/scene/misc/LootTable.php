@@ -35,15 +35,20 @@ abstract class LootTable
   {
     $loot = [];
 
-    foreach ($this->items as $itemsInCategory) {
+    foreach ($this->items as $category => $itemsInCategory) {
       if (!empty($itemsInCategory)) {
-        shuffle($itemsInCategory); // Randomize the order of items
 
-        // Always add the first item if available
-        $this->addItem($itemsInCategory, $loot, 0);
+        // Misc special items are rare
+        if ($category == self::Misc && rand(0, 3) !== 3) continue;
 
-        // Randomly decide to add a second item from the same category, if it exists (50% chance)
-        if (count($itemsInCategory) > 1 && rand(0, 1)) {
+        // Randomize the order of items
+        shuffle($itemsInCategory);
+
+        // Always add the first item if available. We don't randomize misc items, and we double the random count if it's a weapon category.
+        $this->addItem($itemsInCategory, $loot, 0, $category != self::Misc, $category == self::Weapon);
+
+        // If not a movement or misc item, randomly decide to add a second item from the same category, if it exists (50% chance)
+        if (($category != self::Movement && $category != self::Misc) && (count($itemsInCategory) > 1) && rand(0, 1) === 1) {
           $this->addItem($itemsInCategory, $loot, 1);
         }
       }
@@ -52,14 +57,20 @@ abstract class LootTable
     return $loot;
   }
 
-  private function addItem(array $itemCategory, array &$loot, int $index): void
+  private function addItem(array $itemCategory, array &$loot, int $index, bool $randomizeCount = true, bool $doubleCount = false): void
   {
     $item = clone $itemCategory[$index]; // needs to be a fresh clone
     if ($item instanceof Item) {
-      // also apply random stack size if stackable
-      if ($item->getMaxStackSize() > 1) {
-        $item->setCount(rand(1, 3));
+      $originalCount = $item->getCount();
+      // also apply random stack size if stackable and the item doesn't have a set count on it (default is 1)
+      if ($randomizeCount && ($item->getMaxStackSize() > 1) && ($originalCount == 1)) {
+        $count = rand(1, 3);
+        if ($doubleCount) $count *= 2;
+        $item->setCount($count);
+      } else {
+        $item->setCount(max(1, $originalCount));
       }
+
       $loot[] = $item;
     }
   }

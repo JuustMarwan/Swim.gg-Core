@@ -55,7 +55,7 @@ class FormSpectate
       $swimPlayer->sendMessage(TextFormat::YELLOW . "Duel ended before you could join");
     });
 
-    $form->setTitle(TextFormat::GREEN . "Select Duel to Spectate");
+    $form->setTitle(TextFormat::DARK_GREEN . "Select Duel to Spectate");
 
     // we need to iterate all the scenes marked as duels and push them back into an array that generates mapped buttons
     $ss = $core->getSystemManager()->getSceneSystem();

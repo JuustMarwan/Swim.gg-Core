@@ -5,10 +5,8 @@ namespace core\database;
 use core\database\queries\TableManager;
 use core\SwimCore;
 use core\utils\TimeHelper;
-use pocketmine\scheduler\Task;
 use poggit\libasynql\DataConnector;
 use poggit\libasynql\libasynql;
-use poggit\libasynql\SqlThread;
 
 class SwimDB
 {
@@ -42,32 +40,3 @@ class SwimDB
 
 }
 
-class KeepAlive extends Task
-{
-
-  private DataConnector $DBC;
-
-  public function __construct(DataConnector $DBC)
-  {
-    $this->DBC = $DBC;
-  }
-
-  /*
-  * @brief Called in a task every minute to ping the database to keep the connection alive
-  */
-  public function onRun(): void
-  {
-    // Perform a simple query like SELECT 1 to ping the database
-    $this->DBC->executeImplRaw(
-      [
-        0 => "SELECT 1"
-      ],
-      [0 => []],
-      [0 => SqlThread::MODE_GENERIC],
-      function () {
-      },
-      null
-    );
-  }
-
-}

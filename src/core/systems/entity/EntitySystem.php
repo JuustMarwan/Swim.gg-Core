@@ -3,6 +3,7 @@
 namespace core\systems\entity;
 
 use Closure;
+use core\SwimCore;
 use core\systems\entity\entities\Actor;
 use core\systems\player\SwimPlayer;
 use core\systems\scene\Scene;
@@ -33,7 +34,7 @@ class EntitySystem extends System
    * @var Actor[]
    * key is int id of the entity
    */
-  private array $entities = array();
+  public array $entities = array();
 
   public function registerEntity(Actor $entity, bool $callInit = true): void
   {
@@ -115,6 +116,7 @@ class EntitySystem extends System
   {
     foreach ($this->entities as $entity) {
       $entity->event($message, $args);
+      if (SwimCore::$DEBUG) echo("$message sent to {$entity->getNameTag()}\n"); // maybe also explode out the args?
     }
   }
 
@@ -130,6 +132,7 @@ class EntitySystem extends System
         $entity->exit();
         $entity->flagForDespawn();
         unset($this->entities[$key]);
+        if (SwimCore::$DEBUG) echo("Removed entity during scene exit: {$scene->getSceneName()} : " . $entity->getName() . "\n");
       }
     }
   }
@@ -195,8 +198,8 @@ class EntitySystem extends System
   public function registerCustomEntity(string $className, string $identifier, ?Closure $creationFunc = null, string $behaviourId = ""): void
   {
     EntityFactory::getInstance()->register($className, $creationFunc ?? static function (World $world, CompoundTag $nbt) use ($className): Entity {
-        return new $className(EntityDataHelper::parseLocation($nbt, $world), $nbt);
-      }, [$identifier]);
+      return new $className(EntityDataHelper::parseLocation($nbt, $world), $nbt);
+    }, [$identifier]);
     $this->updateStaticPacketCache($identifier, $behaviourId);
   }
 

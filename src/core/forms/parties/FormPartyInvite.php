@@ -24,7 +24,7 @@ class FormPartyInvite
     $playersInHub = $core->getSystemManager()->getSceneSystem()->getScene('Hub')->getPlayers();
     $availablePlayers = [];
     foreach ($playersInHub as $plr) {
-      if (!$plr->getSceneHelper()->isInParty() && $plr->getInvites()->canSendInvite('partyInvites')) {
+      if (!$plr->getSceneHelper()?->isInParty() && $plr->getInvites()?->canSendInvite('partyInvites')) {
         $availablePlayers[] = $plr;
       }
     }
@@ -42,7 +42,7 @@ class FormPartyInvite
 
       // if invited player still online and in the hub and party its self is valid to invite then send the invite
       if ($invited instanceof SwimPlayer) {
-        $party->invitePlayer($invited, $swimPlayer);
+        $party?->invitePlayer($invited, $swimPlayer);
       }
     });
 
@@ -69,7 +69,7 @@ class FormPartyInvite
     $players = $party->getJoinRequests();
     $availablePlayers = [];
     foreach ($players as $plr) {
-      if ($plr->isConnected() && !$plr->getSceneHelper()->isInParty()) {
+      if ($plr->isConnected() && !$plr->getSceneHelper()?->isInParty()) {
         $availablePlayers[] = $plr;
       }
     }
@@ -86,17 +86,16 @@ class FormPartyInvite
       $requested = $buttons[$playerName];
 
       // if invited player still online and in the hub and party its self is valid to invite then send the invite
-      if ($requested instanceof SwimPlayer && $requested->isConnected() && !$requested->getSceneHelper()->isInParty()
-        && $requested->getSceneHelper()->getScene()->getSceneName() == "Hub") {
+      if ($requested instanceof SwimPlayer && $requested->isConnected() && !$requested->getSceneHelper()?->isInParty() && $requested->isInScene("Hub")) {
         $requested->sendMessage(TextFormat::GREEN . "You joined the party: " . TextFormat::YELLOW . $party->getPartyName());
-        $party->addPlayerToParty($requested);
+        $party?->addPlayerToParty($requested);
       }
     });
 
     // add the players to the form
     foreach ($availablePlayers as $p) {
       $buttons[$p->getName()] = $p;
-      $form->addButton($p->getNicks()->getNick());
+      $form->addButton($p->getNicks()?->getNick());
     }
 
     $form->setTitle(TextFormat::GREEN . "Join Requests " . $party->formatSize());

@@ -64,6 +64,18 @@ abstract class EventBehaviorComponent extends Component
     $this->doesEvents = $doesEvents;
   }
 
+  public function printProperties(): void
+  {
+    echo $this->swimPlayer->getName() . " | " . $this->componentName . "\n";
+    echo "hasLifeTime: " . ($this->hasLifeTime ? 'true' : 'false') . "\n";
+    echo "tickLifeTime: " . $this->tickLifeTime . "\n";
+    echo "ticksAlive: " . $this->ticksAlive . "\n";
+    echo "enabled: " . ($this->enabled ? 'true' : 'false') . "\n";
+    echo "destroyMe: " . ($this->destroyMe ? 'true' : 'false') . "\n";
+    echo "doesEvents: " . ($this->doesEvents ? 'true' : 'false') . "\n";
+    echo "removeOnReset: " . ($this->removeOnReset ? 'true' : 'false') . "\n";
+  }
+
   // if not marked for destroy and is enabled
   public final function shouldUpdate(): bool
   {

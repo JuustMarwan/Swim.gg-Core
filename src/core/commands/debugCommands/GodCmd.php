@@ -27,7 +27,7 @@ class GodCmd extends Command
   }
 
   /**
-   * @throws ScoreFactoryException|JsonException
+   * @throws ScoreFactoryException
    */
   public function execute(CommandSender $sender, string $commandLabel, array $args): bool
   {

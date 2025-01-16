@@ -8,17 +8,20 @@ use core\systems\map\MapInfo;
 use core\systems\player\components\ClickHandler;
 use core\systems\player\SwimPlayer;
 use core\systems\scene\misc\Team;
+use core\utils\AcData;
 use core\utils\CoolAnimations;
 use core\utils\PositionHelper;
 use core\utils\ServerSounds;
 use core\utils\TimeHelper;
 use jackmd\scorefactory\ScoreFactory;
 use jackmd\scorefactory\ScoreFactoryException;
+use JetBrains\PhpStorm\ArrayShape;
 use pocketmine\entity\Entity;
 use pocketmine\event\entity\EntityDamageByChildEntityEvent;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\player\PlayerItemUseEvent;
+use pocketmine\network\mcpe\protocol\types\InputMode;
 use pocketmine\player\GameMode;
 use pocketmine\Server;
 use pocketmine\utils\TextFormat;
@@ -27,7 +30,8 @@ use pocketmine\world\World;
 abstract class Duel extends PvP
 {
 
-  public static array $MODES = ['nodebuff', 'boxing', 'midfight'];
+  // only nodebuff boxing and midfight are included in swimcore public
+  public static array $MODES = ['nodebuff', 'boxing', 'midfight', 'bedfight', 'fireball fight', 'bridge', 'battlerush', 'skywars', 'buhc'];
 
   private int $secondsFinished = 0;
   protected int $seconds;
@@ -166,6 +170,14 @@ abstract class Duel extends PvP
       $vKB = $this->vertKB;
       $kb = $this->kb;
 
+      // different KB per input mode
+      $inputMode = $swimPlayer->getAntiCheatData()?->getData(AcData::INPUT_MODE);
+      $controller = $inputMode == InputMode::GAME_PAD || $inputMode == InputMode::MOTION_CONTROLLER;
+      if ($controller) {
+        $vKB = $this->controllerVertKB;
+        $kb = $this->controllerKB;
+      }
+
       // minimize the KB dealt if attacker cps is above the max value
       if ($this->ranked && ($attacker->getClickHandler()->getCPS() > ClickHandler::CPS_MAX)) {
         $vKB /= 1.1;
@@ -181,7 +193,8 @@ abstract class Duel extends PvP
       $this->playerHit($attacker, $swimPlayer, $event);
 
       // update who last hit them
-      $swimPlayer->getCombatLogger()->setlastHitBy($attacker);
+      // $swimPlayer->getCombatLogger()->setlastHitBy($attacker);
+      $attacker->getCombatLogger()->handleAttack($swimPlayer); // this seems a lot better
 
       // Death logic
       if ($event->getFinalDamage() >= $swimPlayer->getHealth()) {
@@ -189,6 +202,10 @@ abstract class Duel extends PvP
         // call back the functions the derived scene must implement
         $this->playerKilled($attacker, $swimPlayer, $event);
       }
+    } elseif ($event->getFinalDamage() >= $swimPlayer->getHealth()) { // for when killed by AI server sided entities like monsters or falling blocks
+      $event->cancel(); // cancel event, so we don't vanilla kill them
+      // call back the function the derived scene must implement
+      $this->playerDiedToMiscDamage($event, $swimPlayer);
     }
   }
 
@@ -202,6 +219,12 @@ abstract class Duel extends PvP
       // no hitter logged then have to just kill and eliminate instantly
       $this->playerFinalKilled($swimPlayer);
     }
+  }
+
+  protected function hitByProjectile(SwimPlayer $hitPlayer, SwimPlayer $hitter, Entity $projectile, EntityDamageByChildEntityEvent $event): void
+  {
+    parent::hitByProjectile($hitPlayer, $hitter, $projectile, $event);
+    $hitPlayer->getCombatLogger()?->setLastHitBy($hitter);
   }
 
   // you should override this for games that have respawn enabled and handle accordingly
@@ -242,23 +265,36 @@ abstract class Duel extends PvP
     $this->playerElimination($victim);
   }
 
-  protected function deathEffect(SwimPlayer $swimPlayer): void
+  protected function deathEffect(SwimPlayer $swimPlayer, bool $blood = true, bool $explode = false, bool $bolt = false): void
   {
     // kill message cosmetic
     $attacker = $swimPlayer->getCombatLogger()->getLastHitBy();
     $attacker?->getCosmetics()?->killMessageLogic($swimPlayer);
 
     $pos = $swimPlayer->getPosition();
-    // CoolAnimations::lightningBolt($pos, $this->world);
-    CoolAnimations::bloodDeathAnimation($pos, $this->world);
-    CoolAnimations::explodeAnimation($pos, $this->world);
+    if ($blood) CoolAnimations::bloodDeathAnimation($pos, $this->world);
+    if ($explode) CoolAnimations::explodeAnimation($pos, $this->world);
+    if ($bolt) CoolAnimations::lightningBolt($pos, $this->world);
   }
 
   // call this function when someone dies or quits!
+  // we store keys by xuid
   protected final function addToLosers(SwimPlayer $swimPlayer): void
   {
-    $this->losers[$swimPlayer->getId()] = $swimPlayer;
+    $this->losers[$swimPlayer->getXuid()] = $swimPlayer;
   }
+
+  protected function getLoserByXuid(string $xuid): ?SwimPlayer
+  {
+    foreach ($this->losers as $loser) {
+      if ($loser->getXuid() === $xuid) {
+        if (SwimCore::$DEBUG) echo("Found player {$loser->getName()} with Xuid {$xuid}\n}");
+        return $loser;
+      }
+    }
+    return null;
+  }
+
 
   protected function duelNameTag(SwimPlayer $swimPlayer): void
   {
@@ -450,7 +486,7 @@ abstract class Duel extends PvP
     }
   }
 
-  protected function startDuelForAllPlayers()
+  protected function startDuelForAllPlayers(): void
   {
     $this->duelStart();
     foreach ($this->teamManager->getTeams() as $team) {
@@ -662,9 +698,38 @@ abstract class Duel extends PvP
     return null;
   }
 
+  // Commonly used constant for Elo systems
+  private const K_FACTOR = 32;
+
+  /**
+   * Calculate Elo gain/loss for the winner and loser.
+   *
+   * @param int $winnerElo The current Elo of the winner
+   * @param int $loserElo The current Elo of the loser
+   * @return array An associative array with the new Elo ratings for winner and loser
+   */
+  #[ArrayShape(['winnerElo' => "float", 'loserElo' => "float"])] public static function calculateElo(int $winnerElo, int $loserElo): array
+  {
+    // Calculate expected scores
+    $expectedWinner = 1 / (1 + pow(10, ($loserElo - $winnerElo) / 400));
+    $expectedLoser = 1 / (1 + pow(10, ($winnerElo - $loserElo) / 400));
+
+    // Calculate new Elo ratings
+    $winnerNewElo = $winnerElo + self::K_FACTOR * (1 - $expectedWinner);
+    $loserNewElo = $loserElo + self::K_FACTOR * (0 - $expectedLoser);
+
+    // Return new ratings
+    return [
+      'winnerElo' => round($winnerNewElo),
+      'loserElo' => round($loserNewElo)
+    ];
+  }
+
   public function dumpDuel(): void
   {
     echo "\n" . $this->sceneName . " {\n";
+
+    // Dump teams and player information
     foreach ($this->teamManager->getTeams() as $team) {
       echo "\n";
       $name = $team->getTeamName();
@@ -679,6 +744,25 @@ abstract class Duel extends PvP
         echo $nameStr . "\n";
       }
     }
+
+    // Dump PVP stats
+    echo "\nPVP Stats:\n";
+    echo "Vertical Knockback: " . $this->vertKB . "\n";
+    echo "Horizontal Knockback: " . $this->kb . "\n";
+    echo "Controller Vertical Knockback: " . $this->controllerVertKB . "\n";
+    echo "Controller Horizontal Knockback: " . $this->controllerKB . "\n";
+    echo "Hit Cooldown: " . $this->hitCoolDown . " ticks\n";
+    echo "Ender Pearl Knockback: " . $this->pearlKB . "\n";
+    echo "Snowball Knockback: " . $this->snowballKB . "\n";
+    echo "Fishing Rod Knockback: " . $this->rodKB . "\n";
+    echo "Arrow Knockback: " . $this->arrowKB . "\n";
+    echo "Ender Pearl Speed: " . $this->pearlSpeed . "\n";
+    echo "Ender Pearl Gravity: " . $this->pearlGravity . "\n";
+
+    // Dump boolean settings
+    echo "Natural Regeneration: " . ($this->naturalRegen ? "Enabled" : "Disabled") . "\n";
+    echo "Fall Damage: " . ($this->fallDamage ? "Enabled" : "Disabled") . "\n";
+
     echo "\n}\n";
   }
 

@@ -16,7 +16,7 @@ class FormPartyExit
     $form = new ModalForm(function (SwimPlayer $player, $data) use ($core, $party) {
       if ($data === null) return;
 
-      if ($data == 1) {
+      if ($data == 1 && $party) {
         $core->getSystemManager()->getPartySystem()->disbandParty($party);
       }
     });
@@ -33,7 +33,7 @@ class FormPartyExit
     $form = new ModalForm(function (SwimPlayer $player, $data) use ($core, $party) {
       if ($data === null) return;
 
-      if ($data == 1) {
+      if ($data == 1 && $party) {
         $party->removePlayerFromParty($player);
         $party->partyMessage(TextFormat::YELLOW . $player->getNicks()->getNick() . " has left the party. " . $party->formatSize());
       }

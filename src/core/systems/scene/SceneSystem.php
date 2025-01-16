@@ -2,9 +2,11 @@
 
 namespace core\systems\scene;
 
+use core\SwimCore;
 use core\systems\entity\EntitySystem;
 use core\systems\player\SwimPlayer;
 use core\systems\System;
+use core\utils\StackTracer;
 use Exception;
 use FilesystemIterator;
 use jackmd\scorefactory\ScoreFactoryException;
@@ -50,7 +52,7 @@ class SceneSystem extends System
 
   private function loadSceneScripts(string $directory): void
   {
-    echo "Loading Persistent Scene Scripts from: " . $directory . "\n";
+    echo "Loading Persistent Scene Scripts from: $directory \n";
     try {
       $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
       foreach ($iterator as $file) {
@@ -90,15 +92,27 @@ class SceneSystem extends System
       $this->scenes[$sceneName]->exit();
       $this->entitySystem->sceneExiting($this->scenes[$sceneName]); // entity system must delete all entities belonging to that scene
       unset($this->scenes[$sceneName]);
+      if (SwimCore::$DEBUG) echo("Removed scene: $sceneName \n");
+    } else if (SwimCore::$DEBUG) {
+      echo("Scene not found to be removed: $sceneName \n");
+      StackTracer::PrintStackTrace();
     }
   }
 
   public function registerScene(Scene $scene, string $sceneName, bool $callInit = true): void
   {
+    if (SwimCore::$DEBUG) {
+      if (isset($this->scenes[$sceneName])) {
+        echo("WARNING: on registering scene $sceneName It was found to already exist. This overwrites it completely in memory. \n");
+        StackTracer::PrintStackTrace();
+      }
+    }
+
     $this->scenes[$sceneName] = $scene;
     if ($callInit) {
       $scene->init();
     }
+    if (SwimCore::$DEBUG) echo("Registered scene: $sceneName \n");
   }
 
   public function getScene(string $sceneName): ?Scene
@@ -109,7 +123,7 @@ class SceneSystem extends System
   /**
    * @throws ScoreFactoryException
    */
-  public function setScene(SwimPlayer $player, Scene $newScene)
+  public function setScene(SwimPlayer $player, Scene $newScene): void
   {
     $currentScene = $player->getSceneHelper()->getScene();
 
@@ -130,19 +144,19 @@ class SceneSystem extends System
     $this->entitySystem->playerJoiningScene($player, $newScene);
   }
 
-  // update all scenes each tick
+  // update all scenes each tick (we don't want to update empty scenes that are not duels)
   public function updateTick(): void
   {
     foreach ($this->scenes as $scene) {
-      $scene->updateTick();
+      if ($scene->getPlayerCount() > 0 || $scene->isDuel()) $scene->updateTick();
     }
   }
 
-  // update all scenes each second
+  // update all scenes each second (we don't want to update empty scenes that are not duels)
   public function updateSecond(): void
   {
     foreach ($this->scenes as $scene) {
-      $scene->updateSecond();
+      if ($scene->getPlayerCount() > 0 || $scene->isDuel()) $scene->updateSecond();
     }
   }
 
@@ -189,7 +203,8 @@ class SceneSystem extends System
    * @return int
    * @breif returns the amount of players in ffa scenes on the server
    */
-  public function getInFFACount(): int {
+  public function getInFFACount(): int
+  {
     $count = 0;
     foreach ($this->scenes as $scene) {
       if ($scene->isFFA()) {
@@ -201,12 +216,13 @@ class SceneSystem extends System
   }
 
   /**
+   * @param string $queueSceneName The Queue scene to use
    * @return int
    * @breif returns the amount of players queued on the server (count of players in the queue scene)
    */
-  public function getQueuedCount(): int
+  public function getQueuedCount(string $queueSceneName = "Queue"): int
   {
-    $queueScene = $this->getScene("Queue");
+    $queueScene = $this->getScene($queueSceneName);
     if ($queueScene) {
       return $queueScene->getPlayerCount();
     }

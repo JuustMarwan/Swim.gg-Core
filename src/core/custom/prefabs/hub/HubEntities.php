@@ -23,7 +23,7 @@ class HubEntities
     }
 
     // make the finn entity
-    $finnPos = new Position(1576, 129, 591, $hub);
+    $finnPos = new Position(75, 50, 89, $hub);
     $finnLocation = Location::fromObject($finnPos->round()->add(0.5, 0, 0.5), $hub);
     $finnLocation->yaw = 0;
     new FinnEntity($finnLocation, $scene);

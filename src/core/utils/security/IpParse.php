@@ -2,7 +2,6 @@
 
 namespace core\utils\security;
 
-// this class is only used for changing players from one server to another, such as on server restart for hot reloading
 class IPParse
 {
 

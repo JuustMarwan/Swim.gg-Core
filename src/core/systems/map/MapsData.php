@@ -44,6 +44,29 @@ class MapsData extends System
     return $this->mapPools['basic']->getRandomMap();
   }
 
+  public function getFirstInactiveMapByBaseNameFromMode(string $mode, string $name): ?MapInfo
+  {
+    if (isset($this->mapPools[$mode])) {
+      return $this->mapPools[$mode]->getFirstInactiveMapByBaseName($name);
+    }
+
+    // special handling for basic and misc maps:
+
+    if ($this->modeUsesBasicMaps($mode)) {
+      return $this->mapPools['basic']->getFirstInactiveMapByBaseName($name);
+    }
+
+    return $this->mapPools['misc']->getFirstInactiveMapByBaseName($name);
+  }
+
+  public function modeUsesBasicMaps(string $mode): bool
+  {
+    if (isset($this->mapPools[$mode])) {
+      return false;
+    }
+    return true;
+  }
+
   public function getNamedMapFromMode(string $mode, string $name): ?MapInfo
   {
     if (isset($this->mapPools[$mode])) {

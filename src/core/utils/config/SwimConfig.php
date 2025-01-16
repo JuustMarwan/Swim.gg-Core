@@ -8,6 +8,7 @@ class SwimConfig
 {
 
   public DatabaseConfig $database;
+  public CommunicatorConfig $communicator;
 
   public array $motds = [
     TextFormat::AQUA . "SWIM.GG",
@@ -16,5 +17,4 @@ class SwimConfig
     TextFormat::RED . "BRIDGE",
     TextFormat::DARK_AQUA . "SKYWARS"
   ];
-
 }

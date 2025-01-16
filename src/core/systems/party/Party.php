@@ -15,7 +15,6 @@ use core\systems\player\SwimPlayer;
 use core\systems\scene\SceneSystem;
 use core\utils\PositionHelper;
 use jackmd\scorefactory\ScoreFactoryException;
-use JsonException;
 use pocketmine\block\utils\DyeColor;
 use pocketmine\block\VanillaBlocks;
 use pocketmine\item\VanillaItems;
@@ -51,6 +50,21 @@ class Party
   private Queue $queueScene;
   private MapsData $mapsData;
 
+  // pvp config fields:
+  public float $vertKB = 0.4;
+  public float $horKB = 0.4;
+  public float $controllerVertKB = 0.4;
+  public float $controllerKB = 0.4;
+  public int $hitCoolDown = 10; // in ticks
+  public float $pearlKB = 0.6;
+  public float $snowballKB = 0.5;
+  public float $rodKB = 0.35;
+  public float $arrowKB = 0.5;
+  public float $pearlSpeed = 2.5;
+  public float $pearlGravity = 0.1;
+  public bool $naturalRegen = true;
+  public bool $fallDamage = false;
+
   public function __construct(SwimCore $core, string $name, SwimPlayer $leader)
   {
     $this->core = $core;
@@ -66,7 +80,7 @@ class Party
 
     // toggles
     $this->settings = [
-      'random' => false, // randomized teams for self duels
+      'random' => true, // randomized teams for self duels
       'allowDuelInvites' => true, // Allows parties to send you duel requests
       'allowJoinRequests' => true, // Allows people to request to join your party
       'openJoin' => false, // Allows people to openly join your party right away
@@ -182,7 +196,7 @@ class Party
         break;
 
       case "§5Party Settings §7[Right Click]":
-        FormPartySettings::partySettingsForm($this->core, $player, $this);
+        FormPartySettings::baseSelection($this->core, $player, $this);
         break;
 
       case "§1Manage Party §7[Right Click]":
@@ -193,7 +207,7 @@ class Party
 
   public function invitePlayer(SwimPlayer $invited, SwimPlayer $inviter): void
   {
-    if ($invited->isConnected() && $invited->getSceneHelper()?->getScene()?->getSceneName() === "Hub" && !$invited->getSceneHelper()?->isInParty()) {
+    if ($invited->isConnected() && $invited->isInScene("Hub") && !$invited->getSceneHelper()?->isInParty()) {
       if (Party::shouldInvite($this)) {
         $invited->getInvites()->partyInvitePlayer($inviter, $this);
       }
@@ -301,7 +315,7 @@ class Party
   private function refreshHubScoreTagsForAll(): void
   {
     foreach ($this->players as $player) {
-      if ($player->isConnected() && $player->getSceneHelper()?->getScene()?->getSceneName() == "Hub") {
+      if ($player->isConnected() && $player->isInScene("Hub")) {
         $player->setScoreTag(TextFormat::GREEN . $this->partyName . TextFormat::GRAY . " | " . $this->formatSize());
       }
     }
@@ -371,9 +385,9 @@ class Party
     $this->inDuel = $status;
   }
 
-  public function duelInvite(SwimPlayer $sender, Party $senderParty, string $mode): void
+  public function duelInvite(SwimPlayer $sender, Party $senderParty, string $mode, string $mapName = 'random'): void
   {
-    // check if already sent the invite (taking a major shortcut here making the key for this array be a formatted string to be used later in UI), this is awful code design
+    // Check if a duel request has already been sent
     $str = TextFormat::GREEN . $senderParty->getPartyName() . TextFormat::DARK_GRAY . " | " . TextFormat::RED . ucfirst($mode);
 
     if (isset($this->duelRequests[$str])) {
@@ -381,17 +395,26 @@ class Party
       return;
     }
 
-    // set
-    $this->duelRequests[$str] = ["party" => $senderParty, "mode" => $mode];
+    // Set the duel request with mode and map name
+    $this->duelRequests[$str] = ["party" => $senderParty, "mode" => $mode, 'map' => $mapName];
 
-    // messages:
+    // Format the map name with proper colors
+    $formattedMap = ($mapName === 'random') ? TextFormat::GRAY . "a Random Map" : TextFormat::AQUA . ucfirst($mapName);
 
-    $senderParty->partyMessage(TextFormat::GREEN . "Sent a " . TextFormat::YELLOW . ucfirst($mode)
-      . TextFormat::GREEN . " Party Duel Request to " . TextFormat::YELLOW . $this->partyName);
+    // Messages sent to the sender party and the receiver party
+    $senderParty->partyMessage(
+      TextFormat::GREEN . "Sent a " . TextFormat::YELLOW . ucfirst($mode)
+      . TextFormat::GREEN . " Party Duel Request to " . TextFormat::YELLOW . $this->partyName
+      . TextFormat::GREEN . " on " . $formattedMap
+    );
 
-    $this->partyMessage(TextFormat::GREEN . "Received " . TextFormat::YELLOW . ucfirst($mode)
-      . TextFormat::GREEN . " Party Duel Request from " . TextFormat::YELLOW . $senderParty->getPartyName());
+    $this->partyMessage(
+      TextFormat::GREEN . "Received a " . TextFormat::YELLOW . ucfirst($mode)
+      . TextFormat::GREEN . " Party Duel Request from " . TextFormat::YELLOW . $senderParty->getPartyName()
+      . TextFormat::GREEN . " on " . $formattedMap
+    );
   }
+
 
   public function clearDuelRequests(): void
   {
@@ -465,54 +488,71 @@ class Party
   }
 
   /**
-   * @throws ScoreFactoryException|JsonException
+   * @throws ScoreFactoryException
    */
-  public function startSelfDuel(string $mode): void
+  public function startSelfDuel(string $mode, string $mapName = 'random'): void
   {
+    // Get the map based on the map name or random selection
+    if ($mapName === 'random') {
+      $map = $this->mapsData->getRandomMapFromMode($mode);
+    } else {
+      $map = $this->mapsData->getFirstInactiveMapByBaseNameFromMode($mode, $mapName);
+      if ($map === null || $map->mapIsActive()) {
+        // If the selected map is in use, fallback to a random map
+        $map = $this->mapsData->getRandomMapFromMode($mode);
+        $this->partyMessage(TextFormat::YELLOW . "The selected map is in use, picked a random map instead");
+      }
+    }
+
+    // If no map is available, return early
+    if ($map === null) {
+      $this->partyMessage(TextFormat::RED . "ERROR: No map available at this time");
+      return;
+    }
+
     // set up party values
     $this->clearPartyData();
     $this->inDuel = true;
 
+    // Create the duel name based on the mode and party name
     $duelName = $mode . " " . $this->partyName;
 
-    $duel = $this->queueScene->makeDuelSceneFromMode($mode, $duelName);
+    // Create a new duel scene for the mode
+    $duel = $this->queueScene->makeDuelSceneFromMode($mode, $duelName, $map->getMapName());
 
-    // make the teams and register the scene TO DO | make sure the scenes set these team values properly such as respawn and target score
+    // Make the teams and register the scene
     $teamOne = $duel->getTeamManager()->makeTeam("Red", TextFormat::RED, false, 3);
     $teamTwo = $duel->getTeamManager()->makeTeam("Blue", TextFormat::BLUE, false, 3);
     $this->sceneSystem->registerScene($duel, $duelName, false);
 
-    // TO DO : map selection somehow
-    $map = $this->mapsData->getRandomMapFromMode($mode);
-
-    if ($map == null) return; // this is awful if this happens
+    // Set the map as active and assign it to the duel
     $map->setActive(true);
     $duel->setMap($map);
     $duel->setIsPartyDuel(true);
 
-    // set spawn points to correct world
-    $world = $this->queueScene->getWorldBasedOnMode($mode);
+    // Set the spawn points for the teams
+    $world = $duel->getWorld();
     $teamOne->addSpawnPoint(0, PositionHelper::vecToPos($map->getSpawnPos1(), $world));
     $teamTwo->addSpawnPoint(0, PositionHelper::vecToPos($map->getSpawnPos2(), $world));
 
-    // now move the players into the duel
+    // Move players into the duel
     foreach ($this->players as $player) {
       $player->getSceneHelper()->setNewScene($duelName);
     }
 
     // Calculate the number of players per team
     $playersCount = count($this->players);
-    $playersPerTeam = (int)ceil($playersCount / 2); // Use ceil to handle odd numbers
+    $playersPerTeam = (int)ceil($playersCount / 2);
 
     // We have to copy the data structure because we will shuffle it if randomized, and we don't want to permanently impact the order of the teams
-    $tempPlayers = $this->players; // this isn't that big a deal because of copy on write, I.E only copied if shuffle is called on it
+    $tempPlayers = $this->players;
 
-    // Shuffle the players array if we want to randomize teams
+    // Shuffle the players array if randomization is enabled
     if ($this->settings['random']) {
       shuffle($tempPlayers);
     }
 
-    // Split the players array into two halves
+    // Split the players into two teams
     $teamOnePlayers = array_slice($tempPlayers, 0, $playersPerTeam);
     $teamTwoPlayers = array_slice($tempPlayers, $playersPerTeam);
 
@@ -526,72 +566,110 @@ class Party
       $teamTwo->addPlayer($player);
     }
 
-    // init the duel now that we set all this data
+    // Initialize the duel now that all the data is set
     $duel->init();
+    $duel->vertKB = $this->vertKB;
+    $duel->kb = $this->horKB;
+    $duel->controllerVertKB = $this->controllerVertKB;
+    $duel->controllerKB = $this->controllerKB;
+    $duel->hitCoolDown = $this->hitCoolDown;
+    $duel->pearlKB = $this->pearlKB;
+    $duel->snowballKB = $this->snowballKB;
+    $duel->rodKB = $this->rodKB;
+    $duel->arrowKB = $this->arrowKB;
+    $duel->pearlSpeed = $this->pearlSpeed;
+    $duel->pearlGravity = $this->pearlGravity;
+    $duel->naturalRegen = $this->naturalRegen;
+    $duel->fallDamage = $this->fallDamage;
 
-    // say map the match is on and the opponent
+    // Announce the map and start the duel
     $duel->sceneAnnouncement(TextFormat::GREEN . "Starting Self Party Duel on: " . TextFormat::YELLOW . $map->getMapName());
 
-    // warp in physically
+    // Warp players into the map
     $duel->warpPlayersIn();
-    if (SwimCore::$DEBUG) $duel->dumpDuel();
+
+    // Debug dump if in debug mode
+    if (SwimCore::$DEBUG) {
+      $duel->dumpDuel();
+    }
   }
 
   /**
    * @throws ScoreFactoryException
    */
-  public function startPartyVsPartyDuel(Party $otherParty, string $mode): void
+  public function startPartyVsPartyDuel(Party $otherParty, string $mode, string $mapName = 'random'): void
   {
-    // set up party values
+    // Get the map based on the map name or random selection
+    if ($mapName === 'random') {
+      $map = $this->mapsData->getRandomMapFromMode($mode);
+    } else {
+      $map = $this->mapsData->getFirstInactiveMapByBaseNameFromMode($mode, $mapName);
+      if ($map === null || $map->mapIsActive()) {
+        // If the selected map is in use, fallback to a random map
+        $map = $this->mapsData->getRandomMapFromMode($mode);
+        $this->partyMessage(TextFormat::YELLOW . "The selected map is in use, picked a random map instead");
+      }
+    }
+
+    // If no map is available, return early
+    if ($map === null) {
+      $this->partyMessage(TextFormat::RED . "ERROR: No map available at this time");
+      return;
+    }
+
+    // Set up party values
     $this->clearPartyData();
     $this->inDuel = true;
     $otherParty->setInDuel(true);
     $otherParty->clearPartyData();
 
+    // Create the duel name based on the mode and party names
     $otherName = $otherParty->getPartyName();
     $duelName = $mode . " | " . $this->partyName . " vs " . $otherName;
 
-    $duel = $this->queueScene->makeDuelSceneFromMode($mode, $duelName);
+    // Create a new duel scene for the mode
+    $duel = $this->queueScene->makeDuelSceneFromMode($mode, $duelName, $map->getMapName());
 
-    // make the teams and register the scene TO DO | make sure the scenes set these team values properly such as respawn and target score
+    // Make the teams and register the scene
     $teamOne = $duel->getTeamManager()->makeTeam($this->partyName, TextFormat::RED, false, 3);
     $teamTwo = $duel->getTeamManager()->makeTeam($otherName, TextFormat::BLUE, false, 3);
     $this->sceneSystem->registerScene($duel, $duelName, false);
 
-    // TO DO : map selection somehow
-    $map = $this->mapsData->getRandomMapFromMode($mode);
-
-    if ($map == null) return; // this is awful if this happens
+    // Set the map as active and assign it to the duel
     $map->setActive(true);
     $duel->setMap($map);
     $duel->setIsPartyDuel(true);
 
-    // set spawn points to correct world
-    $world = $this->queueScene->getWorldBasedOnMode($mode);
+    // Set the spawn points for the teams
+    $world = $duel->getWorld();
     $teamOne->addSpawnPoint(0, PositionHelper::vecToPos($map->getSpawnPos1(), $world));
     $teamTwo->addSpawnPoint(0, PositionHelper::vecToPos($map->getSpawnPos2(), $world));
 
-    // now move the players into the duel
+    // Move players from both parties into the duel
     foreach ($this->players as $player) {
       $player->getSceneHelper()->setNewScene($duelName);
       $teamOne->addPlayer($player);
     }
 
-    // do the same for the other team
     foreach ($otherParty->getPlayers() as $player) {
       $player->getSceneHelper()->setNewScene($duelName);
       $teamTwo->addPlayer($player);
     }
 
-    // init the duel now that we set all this data
+    // Initialize the duel now that all the data is set
     $duel->init();
 
-    // say map the match is on and the opponent
+    // Announce the map and the opponent team
     $duel->sceneAnnouncement(TextFormat::GREEN . "Starting Party Duel on: " . TextFormat::YELLOW . $map->getMapName()
       . TextFormat::GRAY . " | " . TextFormat::YELLOW . "VS: " . $otherName);
 
-    // warp in physically
+    // Warp players into the map
     $duel->warpPlayersIn();
+
+    // Debug dump if in debug mode
+    if (SwimCore::$DEBUG) {
+      $duel->dumpDuel();
+    }
   }
 
 }

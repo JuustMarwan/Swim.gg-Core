@@ -2,6 +2,7 @@
 
 namespace core\custom\prefabs\boombox;
 
+use core\scenes\PvP;
 use core\systems\player\SwimPlayer;
 use core\utils\InventoryUtil;
 use pocketmine\block\Block;
@@ -31,9 +32,16 @@ class ThrowingTNT extends BaseBox
         return false;
       }
 
+      // the pvp scene states the tnt's behavior (cringe hack feature)
+      $breaksBlocks = false;
+      $scene = $player->getSceneHelper()?->getScene();
+      if ($scene instanceof PvP) {
+        $breaksBlocks = $scene->tntBreaksBlocks;
+      }
+
       // place the primed tnt
       $pos = $blockReplace->getPosition();
-      $primedTnt = new SmoothPrimedTNT(Location::fromObject($pos->add(0.5, 1, 0.5), $pos->getWorld()));
+      $primedTnt = new SmoothPrimedTNT($player, Location::fromObject($pos->add(0.5, 0, 0.5), $pos->getWorld()), $breaksBlocks);
       $primedTnt->setFuse(20);
       $primedTnt->spawnToAll();
       $primedTnt->broadcastSound(new IgniteSound());
@@ -62,8 +70,18 @@ class TNT_Listener implements Listener
     if ($event->isCancelled()) return;
 
     $item = $event->getItem();
+    /** @var SwimPlayer $player */
     $player = $event->getPlayer();
-    if (($item->getTypeId() == -BlockTypeIds::TNT) && ($player instanceof SwimPlayer) && ($item->getCustomName() === TextFormat::RESET . TextFormat::RED . "Throwing TNT")) {
+
+    // the pvp scene states the tnt's behavior (cringe hack feature)
+    $breaksBlocks = false;
+    $scene = $player->getSceneHelper()?->getScene();
+    if ($scene instanceof PvP) {
+      if (!$scene->canThrowTnt) return;
+      $breaksBlocks = $scene->tntBreaksBlocks;
+    }
+
+    if (($item->getTypeId() == -BlockTypeIds::TNT) && ($item->getCustomName() === TextFormat::RESET . TextFormat::RED . "Throwing TNT")) {
       // if on cool down then don't do throwing tnt logic
       if ($player->getCoolDowns()->onCoolDown($item)) {
         return;
@@ -73,8 +91,7 @@ class TNT_Listener implements Listener
       $player->getCoolDowns()->triggerItemCoolDownEvent($event, $player->getInventory()->getItemInHand(), 1, true, false);
 
       // if the item cool down did not cancel the event (meaning we aren't on cool down) then do tnt throwing
-
-      $tnt = new SmoothPrimedTNT(Location::fromObject($player->getEyePos(), $player->getWorld()));
+      $tnt = new SmoothPrimedTNT($player, Location::fromObject($player->getEyePos(), $player->getWorld()), $breaksBlocks);
       $tnt->setScale(0.5);
       $tnt->setGravity(0.025);
       $tnt->setMotion($player->getDirectionVector()->multiply(1.2));

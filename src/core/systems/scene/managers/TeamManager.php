@@ -17,7 +17,7 @@ class TeamManager
   private Scene $parentScene;
   private int $totalCreatedTeams; // for team id
 
-  private Team $specTeam;
+  private ?Team $specTeam = null;
 
   public function __construct(Scene $scene)
   {
@@ -54,9 +54,9 @@ class TeamManager
   }
 
   /**
-   * @return Team
+   * @return ?Team
    */
-  public function getSpecTeam(): Team
+  public function getSpecTeam(): ?Team
   {
     return $this->specTeam;
   }

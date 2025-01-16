@@ -184,7 +184,7 @@ abstract class ServerGameEvent
   }
 
   /**
-   * @throws ScoreFactoryException
+   * @throws ScoreFactoryException|JsonException
    * @breif Removes all players from the event and sends them back to hub
    */
   private function end(): void

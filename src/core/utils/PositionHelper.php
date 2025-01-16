@@ -145,12 +145,12 @@ class PositionHelper
 
   public static function getChunkX(Position $position): int|float
   {
-    return $position->x >> 4;
+    return ((int)$position->x) >> 4;
   }
 
   public static function getChunkZ(Position $position): int|float
   {
-    return $position->z >> 4;
+    return ((int)$position->z) >> 4;
   }
 
   public static function distanceSquared2D(float $x1, float $y1, float $x2, float $y2): float

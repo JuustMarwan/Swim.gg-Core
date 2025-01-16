@@ -121,9 +121,9 @@ class Team
   // Returns null if the positions array is empty
   public function getRandomSpawnPosition(): ?Position
   {
-    if (!empty($this->positions)) {
-      $randomKey = array_rand($this->positions);
-      return $this->positions[$randomKey];
+    if (!empty($this->spawnPoints)) {
+      $randomKey = array_rand($this->spawnPoints);
+      return $this->spawnPoints[$randomKey];
     }
 
     return null;
@@ -170,7 +170,22 @@ class Team
         StackTracer::PrintStackTrace();
       }
       unset($this->players[$swimPlayer->getId()]);
-      $swimPlayer->getSceneHelper()->setTeamNumber(-1); // sets back to invalid since they aren't in a team anymore anywhere
+      $swimPlayer->getSceneHelper()?->setTeamNumber(-1); // sets back to invalid since they aren't in a team anymore anywhere
+    }
+  }
+
+  /**
+   * @breif Removes all disconnected player's from a team, or player's no longer in the queue scene.
+   * This is to fix a rare bug that might be caused from something deeper in the code base.
+   * @return void
+   */
+  public function pruneOffline(): void
+  {
+    foreach ($this->players as $player) {
+      if ($player && (!$player->isOnline() || $player->getSceneHelper()?->getScene() !== $this->parentScene)) {
+        // I am concerned that removePlayer on a disconnected player ref could crash things
+        $this->removePlayer($player);
+      }
     }
   }
 
@@ -214,6 +229,13 @@ class Team
   {
     foreach ($this->players as $player) {
       ServerSounds::playSoundToPlayer($player, $soundName, $volume, $pitch);
+    }
+  }
+
+  public function teamTitle(string $title, string $subtitle = "", int $fadeIn = -1, int $stay = -1, int $fadeOut = -1): void
+  {
+    foreach ($this->players as $player) {
+      if ($player->isOnline()) $player->sendtitle($title, $subtitle, $fadeIn, $stay, $fadeOut);
     }
   }
 

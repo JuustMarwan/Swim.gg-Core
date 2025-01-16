@@ -4,6 +4,7 @@ namespace core\systems\scene\managers;
 
 use core\systems\scene\misc\LootTable;
 use core\utils\PositionHelper;
+use pocketmine\block\inventory\ChestInventory;
 use pocketmine\block\tile\Chest as ChestTile;
 
 // use pocketmine\block\tile\EnderChest as EnderChestTile;
@@ -25,7 +26,7 @@ class ChestLootManager
    * @var ChestTile[]
    * key is int from vector3 hash
    */
-  private array $lootedChests = [];
+  public array $lootedChests = [];
 
   // the class must be constructed with a loot table
   private LootTable $lootTable;
@@ -56,17 +57,19 @@ class ChestLootManager
   /**
    * First checks if we haven't fixed this chest yet
    * If we haven't fixed and opened it yet then fill the chest with random loot
-   * Then log the chest as opened
+   * Then log the chest as opened. This returns the chest inventory if there was a chest here to refill.
    */
-  public function openAndLootChestWithLog(ChestTile $chestTile): void
+  public function openAndLootChestWithLog(ChestTile $chestTile): ?ChestInventory
   {
     $key = PositionHelper::getVectorHashKey($chestTile->getPosition());
     if (!isset($this->fixedChests[$key])) {
       $this->fixedChests[$key] = $chestTile;
       $this->lootedChests[$key] = $chestTile;
       $chestTile->getRealInventory()->clearAll(); // this is our first time opening the chest so clear it
-      $this->refillChest($chestTile);
+      return $this->refillChest($chestTile);
     }
+
+    return null;
   }
 
   public function logLooted(ChestTile $chestTile): void
@@ -111,11 +114,13 @@ class ChestLootManager
   }
 
   // fills a chest with 1-2 different random items from each category loot category
-  public function refillChest(ChestTile $chest): void
+  // then it returns the chest tiles inventory
+  public function refillChest(ChestTile $chest): ChestInventory
   {
     $items = $this->lootTable->getRandomLoot();
     $inventory = $chest->getRealInventory();
     self::fillInventory($inventory, $items);
+    return $inventory;
   }
 
   /**
@@ -170,7 +175,7 @@ class ChestLootManager
       // Get the slot from the randomized order of empty slots and remove it from available slots
       $randomSlotIndex = array_shift($emptySlots);
       if ($randomSlotIndex != null) { // this did have a very scary crash that happened once so hopefully this fixes it
-        $inventory->setItem($randomSlotIndex, $item);
+        $inventory->setItem($randomSlotIndex, $item); // maybe to be extra safe we should use InventoryUtil::SafeSetItem
       }
     }
   }

@@ -11,21 +11,25 @@ use core\forms\hub\FormFFA;
 use core\forms\hub\FormSettings;
 use core\forms\hub\FormSpectate;
 use core\forms\parties\FormPartyCreate;
+use core\systems\player\components\Rank;
 use core\systems\player\SwimPlayer;
 use core\systems\scene\Scene;
 use core\utils\BehaviorEventEnums;
+use core\utils\InventoryUtil;
+use core\utils\PositionHelper;
+use jojoe77777\FormAPI\SimpleForm;
 use jackmd\scorefactory\ScoreFactory;
 use jackmd\scorefactory\ScoreFactoryException;
-use jojoe77777\FormAPI\ModalForm;
 use pocketmine\block\Block;
 use pocketmine\block\VanillaBlocks;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\player\PlayerItemUseEvent;
 use pocketmine\item\VanillaItems;
+use pocketmine\network\mcpe\protocol\LevelEventPacket;
+use pocketmine\network\mcpe\protocol\types\LevelEvent;
 use pocketmine\player\GameMode;
 use pocketmine\Server;
 use pocketmine\utils\TextFormat;
-use pocketmine\world\Position;
 use ReflectionException;
 
 class Hub extends Scene
@@ -51,24 +55,29 @@ class Hub extends Scene
       BehaviorEventEnums::BLOCK_PLACE_EVENT,
       BehaviorEventEnums::PLAYER_ITEM_CONSUME_EVENT
     ]);
+
+    $this->setWorld($this->core->getHubWorld());
+
     // spawn in our hub entities for the scene
     HubEntities::spawnToScene($this);
   }
 
   public function playerAdded(SwimPlayer $player): void
   {
+    $player->getEventBehaviorComponentManager()?->clear(false);
+    InventoryUtil::fullPlayerReset($player);
     $player->getEventBehaviorComponentManager()->registerComponent(new MaxDistance("max", $this->core, $player));
     $this->restart($player);
+    if ($player->getRank()?->getRankLevel() ?? 0 >= Rank::BOOSTER_RANK) $player->setAllowFlight(true);
   }
 
   // when leaving the hub we remove any duel invites they sent to any players who are in the hub
   public function playerRemoved(SwimPlayer $player): void
   {
-    $id = $player->getId();
     $name = $player->getName();
     foreach ($this->players as $plr) {
       if ($plr instanceof SwimPlayer) {
-        if ($plr->getId() != $id) {
+        if ($plr !== $player) {
           $plr->getInvites()->prunePlayerFromDuelInvites($name);
         }
       }
@@ -80,15 +89,16 @@ class Hub extends Scene
     $this->teleportToHub($swimPlayer);
     $this->setHubKit($swimPlayer);
     $this->setHubTags($swimPlayer);
-    // $swimPlayer->getCosmetics()->refresh();
+    $swimPlayer->getCosmetics()->refresh();
     $swimPlayer->setGamemode(GameMode::ADVENTURE);
+    $swimPlayer->getNetworkSession()->sendDataPacket(LevelEventPacket::create(LevelEvent::STOP_RAIN, 10000, null));
   }
 
   private function teleportToHub(SwimPlayer $player): void
   {
-    $hub = $this->core->getServer()->getWorldManager()->getWorldByName("hub");
+    $hub = $this->core->getHubWorld();
     $safeSpawn = $hub->getSafeSpawn();
-    $player->teleport(new Position($safeSpawn->getX() + 0.5, $safeSpawn->getY(), $safeSpawn->getZ() + 0.5, $hub));
+    $player->teleport(PositionHelper::centerPosition($safeSpawn), 90, 0);
   }
 
   private function setHubKit(SwimPlayer $player): void
@@ -96,23 +106,26 @@ class Hub extends Scene
     $inventory = $player->getInventory();
     $inventory->setHeldItemIndex(4);
     $inventory->clearAll();
-    /*
-    $inventory->setItem(0, VanillaItems::DIAMOND_SWORD()->setCustomName("§bFFA §7[Right Click]"));
-    $inventory->setItem(1, VanillaItems::IRON_SWORD()->setCustomName("§fDuels §7[Right Click]"));
-    $inventory->setItem(2, VanillaItems::TOTEM()->setCustomName("§aDuel Requests §7[Right Click]"));
-    $inventory->setItem(3, VanillaItems::PAPER()->setCustomName("§bSpectate Matches §7[Right Click]"));
-    $inventory->setItem(5, VanillaItems::NETHER_STAR()->setCustomName("§bEvents §7[Right Click]"));
-    $inventory->setItem(6, VanillaItems::EMERALD()->setCustomName("§dEdit Kits §7[Right Click]"));
-    $inventory->setItem(7, VanillaBlocks::CAKE()->asItem()->setCustomName("§aParties §7[Right Click]"));
-    */
-    $inventory->setItem(8, VanillaItems::BOOK()->setCustomName("§bManage Settings §7[Right Click]"));
+    if ($this->core->getRegionInfo()->isHub()) {
+      // $inventory->setItem(0, new ServerSelectorCompass());
+    } else {
+      $inventory->setItem(0, VanillaItems::DIAMOND_SWORD()->setCustomName("§bFFA §7[Right Click]")->setUnbreakable());
+      $inventory->setItem(1, VanillaItems::IRON_SWORD()->setCustomName("§fDuels §7[Right Click]")->setUnbreakable());
+      $inventory->setItem(2, VanillaItems::TOTEM()->setCustomName("§aDuel Requests §7[Right Click]"));
+      $inventory->setItem(3, VanillaItems::PAPER()->setCustomName("§bSpectate Matches §7[Right Click]"));
+      $inventory->setItem(5, VanillaItems::NETHER_STAR()->setCustomName("§bEvents §7[Right Click]"));
+      $inventory->setItem(6, VanillaItems::EMERALD()->setCustomName("§dEdit Kits §7[Right Click]"));
+      $inventory->setItem(7, VanillaBlocks::CAKE()->asItem()->setCustomName("§aParties §7[Right Click]"));
+      $inventory->setItem(8, VanillaItems::BOOK()->setCustomName("§bManage Settings §7[Right Click]"));
+    }
   }
 
-  private function setHubTags(SwimPlayer $swimPlayer): void
+  // Nick component uses this
+  public static function setHubTags(SwimPlayer $swimPlayer): void
   {
-    $swimPlayer->genericNameTagHandling();
-    // $swimPlayer->getCosmetics()->tagNameTag();
-    $swimPlayer->setScoreTag("");
+    // $swimPlayer->genericNameTagHandling();
+    $swimPlayer->getCosmetics()->tagNameTag();
+    $swimPlayer->getRank()->rankScoreTag();
   }
 
   // at scene update we call the scoreboard behavior function
@@ -137,17 +150,30 @@ class Hub extends Scene
       try {
         $swimPlayer->refreshScoreboard(TextFormat::AQUA . "Swimgg.club");
         ScoreFactory::sendObjective($player);
-        // variables needed
-        $onlineCount = count($player->getServer()->getOnlinePlayers());
-        $maxPlayers = $player->getServer()->getMaxPlayers();
         $ping = $swimPlayer->getNslHandler()->getPing();
-        $indent = "  ";
-        // define lines
-        ScoreFactory::setScoreLine($player, 1, "  =============   ");
-        ScoreFactory::setScoreLine($player, 2, $indent . "§bOnline: §f" . $onlineCount . "§7 / §3" . $maxPlayers . $indent);
-        ScoreFactory::setScoreLine($player, 3, $indent . "§bPing: §3" . $ping . $indent);
-        ScoreFactory::setScoreLine($player, 4, $indent . "§bdiscord.gg/§3swim" . $indent);
-        ScoreFactory::setScoreLine($player, 5, "  =============  ");
+        if ($this->core->getRegionInfo()->isHub()) {
+          ScoreFactory::setScoreLine($player, 1, " §bPing: §3" . $ping);
+          ScoreFactory::setScoreLine($player, 2, " §bdiscord.gg/§3swim");
+          ScoreFactory::setScoreLine($player, 3, " §bswimgg.§3club");
+          $line = 4;
+          foreach ($this->core->getCommunicator()->getAllRegionPlayers() as $region => $players) {
+            $numPlayers = isset($players) ? count(value: $players) : "§COffline";
+            ScoreFactory::setScoreLine($player, $line, " §b" . $region . ":§f " . $numPlayers);
+            $line++;
+          }
+        } else {
+          // variables needed
+          $onlineCount = count($player->getServer()->getOnlinePlayers());
+          $maxPlayers = $player->getServer()->getMaxPlayers();
+          // define lines
+          ScoreFactory::setScoreLine($player, 1, " §bOnline: §f" . $onlineCount . "§7 / §3" . $maxPlayers);
+          ScoreFactory::setScoreLine($player, 2, " §bPing: §3" . $ping);
+          ScoreFactory::setScoreLine($player, 3, " §bQueued: §3" . $this->sceneSystem->getQueuedCount());
+          ScoreFactory::setScoreLine($player, 4, " §bIn Duel: §3" . $this->sceneSystem->getInDuelsCount());
+          ScoreFactory::setScoreLine($player, 5, " §bIn FFA: §3" . $this->sceneSystem->getInFFACount());
+          ScoreFactory::setScoreLine($player, 6, " §bswimgg.§3club");
+          ScoreFactory::setScoreLine($player, 7, " §bdiscord.gg/§3swim");
+        }
         // send lines
         ScoreFactory::sendLines($player);
       } catch (ScoreFactoryException $e) {
@@ -170,7 +196,7 @@ class Hub extends Scene
   }
 
   // using hub items to open forms
-  // TO DO : use custom item classes with their own embedded on use callbacks to avoid this string switch statement malarkey
+  // TO DO : use custom derived item classes with their own embedded on use callbacks to avoid this string-switch malarkey
   public function sceneItemUseEvent(PlayerItemUseEvent $event, SwimPlayer $swimPlayer): void
   {
     $item = $swimPlayer->getInventory()->getItemInHand();
@@ -183,13 +209,13 @@ class Hub extends Scene
       return;
     }
 
-    // regular hub items
+    // regular
     switch ($name) {
       case "§bFFA §7[Right Click]":
         FormFFA::ffaSelectionForm($swimPlayer);
         break;
       case "§fDuels §7[Right Click]":
-        FormDuels::duelSelectionForm($swimPlayer);
+        FormDuels::duelBaseForm($swimPlayer);
         break;
       case "§bManage Settings §7[Right Click]":
         FormSettings::settingsForm($swimPlayer);
@@ -215,21 +241,22 @@ class Hub extends Scene
   // TO DO: update the form api virion to work properly for modal form because null is returned on closing and that isn't handled properly
   public static function editKitConfirm(SwimPlayer $swimPlayer): void
   {
-    $form = new ModalForm(function (SwimPlayer $player, $data) {
+    $form = new SimpleForm(function (SwimPlayer $player, $data) {
       if ($data === null) {
         return false;
       }
 
-      if ($data == 1) {
-        $player->getSceneHelper()->setNewScene('Kits');
+      if ($data == 0) {
+        $player->getSceneHelper()->setNewScene('KitEditor');
       }
       return true;
+
     });
 
     $form->setTitle("Kit Editor");
     $form->setContent("Go to kit Editor?");
-    $form->setButton1(TextFormat::GREEN . "Yes");
-    $form->setButton2(TextFormat::RED . "No, Stay in Hub");
+    $form->addButton(TextFormat::GREEN . "Yes");
+    $form->addButton(TextFormat::RED . "No, Stay in Hub");
     $swimPlayer->sendForm($form);
   }
 

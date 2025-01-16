@@ -43,12 +43,12 @@ class DoubleJump extends EventBehaviorComponent
     }
 
     // checks if is a starting input from the ground, we return since we only care about air jumps
-    if ($packet->hasFlag(PlayerAuthInputFlags::START_JUMPING)) {
+    if ($packet->getInputFlags()->get(PlayerAuthInputFlags::START_JUMPING)) {
       return;
     }
 
     // check if a jump input on air
-    if (!$packet->hasFlag(PlayerAuthInputFlags::NORTH_JUMP)) {
+    if (!$packet->getInputFlags()->get(PlayerAuthInputFlags::NORTH_JUMP)) {
       return;
     }
 

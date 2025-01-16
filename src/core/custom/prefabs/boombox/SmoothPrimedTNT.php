@@ -2,54 +2,54 @@
 
 namespace core\custom\prefabs\boombox;
 
+use core\systems\entity\entities\DeltaSupportTrait;
+use core\systems\player\SwimPlayer;
 use pocketmine\entity\Attribute;
 use pocketmine\entity\Location;
 use pocketmine\entity\object\PrimedTNT;
 use pocketmine\event\entity\EntityPreExplodeEvent;
+use pocketmine\math\Vector3;
 use pocketmine\nbt\tag\CompoundTag;
-use pocketmine\network\mcpe\NetworkBroadcastUtils;
 use pocketmine\network\mcpe\protocol\AddActorPacket;
-use pocketmine\network\mcpe\protocol\MoveActorAbsolutePacket;
 use pocketmine\network\mcpe\protocol\types\entity\Attribute as NetworkAttribute;
 use pocketmine\network\mcpe\protocol\types\entity\EntityIds;
 use pocketmine\network\mcpe\protocol\types\entity\EntityMetadataCollection;
 use pocketmine\network\mcpe\protocol\types\entity\EntityMetadataProperties;
 use pocketmine\network\mcpe\protocol\types\entity\PropertySyncData;
 use pocketmine\player\Player;
-use pocketmine\world\Explosion;
 use pocketmine\world\Position;
+use function array_map;
 
 class SmoothPrimedTNT extends PrimedTNT
 {
 
-  private bool $breaksBlocks;
-  private float $blastRadius;
+  use DeltaSupportTrait;
 
-  public function __construct(Location $location, bool $breakBlocks = false, float $blastRadius = 3.5, ?CompoundTag $nbt = null)
-  {
-    parent::__construct($location, $nbt);
-    $this->breaksBlocks = $breakBlocks;
-    $this->blastRadius = $blastRadius;
-    $this->setScale(4.0); // seems useless
-  }
+  private int $maxFuse;
 
   public static function getNetworkTypeId(): string
   {
     return EntityIds::TNT_MINECART;
   }
 
-  protected function broadcastMovement(bool $teleport = false): void
+  private bool $breaksBlocks;
+  private float $blastRadius;
+  protected SwimPlayer $owner;
+
+  public function __construct
+  (
+    SwimPlayer   $owner,
+    Location     $location,
+    bool         $breakBlocks = false,
+    float        $blastRadius = 3.5,
+    ?CompoundTag $nbt = null
+  )
   {
-    NetworkBroadcastUtils::broadcastPackets($this->hasSpawned, [MoveActorAbsolutePacket::create(
-      $this->id,
-      $this->getOffsetPosition($this->location->add(0, 0.7, 0)),
-      $this->location->pitch,
-      $this->location->yaw,
-      $this->location->yaw,
-      (
-      ($this->onGround ? MoveActorAbsolutePacket::FLAG_GROUND : 0)
-      )
-    )]);
+    parent::__construct($location, $nbt);
+    $this->owner = $owner;
+    $this->setOwningEntity($owner);
+    $this->blastRadius = $blastRadius;
+    $this->breaksBlocks = $breakBlocks;
   }
 
   protected function sendSpawnPacket(Player $player): void
@@ -58,7 +58,7 @@ class SmoothPrimedTNT extends PrimedTNT
       $this->getId(),
       $this->getId(),
       static::getNetworkTypeId(),
-      $this->location->asVector3()->add(0, 0.7, 0),
+      $this->getOffsetPosition($this->location),
       $this->getMotion(),
       $this->location->pitch,
       $this->location->yaw,
@@ -75,15 +75,28 @@ class SmoothPrimedTNT extends PrimedTNT
 
   public function explode(): void
   {
-    $ev = new EntityPreExplodeEvent($this, $this->blastRadius);
+    $ev = new EntityPreExplodeEvent($this, 3.5);
     $ev->call();
     if (!$ev->isCancelled()) {
-      $explosion = new Explosion(Position::fromObject($this->location->add(0, $this->size->getHeight() / 2, 0), $this->getWorld()), $ev->getRadius(), $this);
-      if ($this->breaksBlocks) {
+
+      //TODO: deal with underwater TNT (underwater TNT treats water as if it has a blast resistance of 0)
+      $explosion = new CustomExplosion
+      (
+        Position::fromObject($this->location->add(0, $this->size->getHeight() / 2, 0), $this->getWorld()),
+        $ev->getRadius(),
+        $this
+      );
+
+      if ($ev->isBlockBreaking()) {
         $explosion->explodeA();
       }
       $explosion->explodeB();
     }
+  }
+
+  public function getOffsetPosition(Vector3 $vector3): Vector3
+  {
+    return $vector3->add(0, 1.25, 0);
   }
 
   protected function syncNetworkData(EntityMetadataCollection $properties): void
@@ -91,5 +104,50 @@ class SmoothPrimedTNT extends PrimedTNT
     parent::syncNetworkData($properties);
     $properties->setFloat(EntityMetadataProperties::SCALE, 0.001);
   }
+
+  public function setFuse(int $fuse): void
+  {
+    $this->maxFuse = $fuse;
+    parent::setFuse($fuse);
+  }
+
+  /* this doesn't work for some reason
+  public function onUpdate(int $currentTick): bool
+  {
+    // Retrieve the remaining fuse time in ticks
+    $currentFuse = $this->getFuse(); // Assuming this returns remaining ticks
+
+    // Prevent division by zero
+    if ($this->maxFuse <= 0) {
+      $this->setNameTag(TextFormat::RED . "0.00");
+      return parent::onUpdate($currentTick);
+    }
+
+    // Convert remaining ticks to seconds with two decimal points
+    $remainingSeconds = $currentFuse / 20;
+    $formattedSeconds = number_format($remainingSeconds, 2);
+
+    // Determine the color based on remaining fuse time
+    if ($currentFuse > ($this->maxFuse / 2)) {
+      $color = TextFormat::GREEN;
+    } elseif ($currentFuse > ($this->maxFuse / 3)) {
+      $color = TextFormat::YELLOW;
+    } else {
+      $color = TextFormat::RED;
+    }
+
+    // Prevent negative time display just in case
+    if ($remainingSeconds < 0) {
+      $formattedSeconds = "0.00";
+      $color = TextFormat::RED;
+    }
+
+    // Set the name tag with color and remaining seconds
+    $this->setNameTag($color . $formattedSeconds . "s");
+
+    // Continue with the parent onUpdate method
+    return parent::onUpdate($currentTick);
+  }
+  */
 
 }

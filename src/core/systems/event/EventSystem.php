@@ -142,7 +142,7 @@ class EventSystem extends System
   // below here are functions to create and register server events into this system
 
   /**
-   * @throws ScoreFactoryException
+   * @throws ScoreFactoryException|JsonException
    */
   public function registerEvent(SwimPlayer $swimPlayerHost, ServerGameEvent $event): void
   {
@@ -172,6 +172,9 @@ class EventSystem extends System
     } else if (isset($this->inProgressEvents[$name])) {
       unset($this->inProgressEvents[$name]);
     }
+
+    // decrease event instance count
+    $event::setInstances($event::getInstances() - 1);
   }
 
 }

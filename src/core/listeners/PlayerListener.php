@@ -11,7 +11,6 @@ use core\systems\SystemManager;
 use core\Utils\BehaviorEventEnums;
 use core\utils\InventoryUtil;
 use core\utils\PositionHelper;
-use jackmd\scorefactory\ScoreFactoryException;
 use pocketmine\block\BlockTypeIds;
 use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockFormEvent;
@@ -27,6 +26,7 @@ use pocketmine\event\entity\EntityTeleportEvent;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
 use pocketmine\event\entity\ProjectileHitEvent;
 use pocketmine\event\entity\ProjectileLaunchEvent;
+use pocketmine\event\inventory\CraftItemEvent;
 use pocketmine\event\inventory\InventoryTransactionEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerBucketEmptyEvent;
@@ -41,13 +41,6 @@ use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerJumpEvent;
 use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\event\player\PlayerToggleFlightEvent;
-use pocketmine\event\server\DataPacketReceiveEvent;
-use pocketmine\network\mcpe\protocol\InventoryTransactionPacket;
-use pocketmine\network\mcpe\protocol\LevelSoundEventPacket;
-use pocketmine\network\mcpe\protocol\PlayerAuthInputPacket;
-use pocketmine\network\mcpe\protocol\types\inventory\UseItemOnEntityTransactionData;
-use pocketmine\network\mcpe\protocol\types\LevelSoundEvent;
-use pocketmine\network\mcpe\protocol\types\PlayerAuthInputFlags;
 use pocketmine\world\Position;
 
 class PlayerListener implements Listener
@@ -137,9 +130,10 @@ class PlayerListener implements Listener
     if ($event->getCause() == EntityDamageEvent::CAUSE_ENTITY_EXPLOSION || $event->getCause() == EntityDamageEvent::CAUSE_BLOCK_EXPLOSION) {
       $player = $event->getEntity();
       if ($player instanceof SwimPlayer) {
+        $player->resetTicksSinceMotionArtificiallySet(); // fix for throwing tnt and velocity check
         $player->event($event, BehaviorEventEnums::ENTITY_DAMAGE_EVENT);
         if ($event->isCancelled()) return;
-        $player->getSceneHelper()?->getScene()->sceneEntityDamageEvent($event, $player);
+        $player->getSceneHelper()?->getScene()?->sceneEntityDamageEvent($event, $player);
       }
       return;
     }
@@ -150,7 +144,7 @@ class PlayerListener implements Listener
       if ($player instanceof SwimPlayer) {
         $player->event($event, BehaviorEventEnums::ENTITY_DAMAGE_BY_CHILD_ENTITY_EVENT);
         if ($event->isCancelled()) return;
-        $player->getSceneHelper()?->getScene()->sceneEntityDamageByChildEntityEvent($event, $player);
+        $player->getSceneHelper()?->getScene()?->sceneEntityDamageByChildEntityEvent($event, $player);
       }
     } else if ($event instanceof EntityDamageByEntityEvent) { // check if normal melee damage
       $player = $event->getEntity();
@@ -158,23 +152,58 @@ class PlayerListener implements Listener
 
         $damager = $event->getDamager();
         if ($damager instanceof SwimPlayer) {
-          $damager->getEventBehaviorComponentManager()->attackedPlayer($event, $player);
+          // HUGE PROBLEM : Scene's have custom damage handles for no critical hits. If we put this after the code below,
+          // then we can't do the logic we need for health checking in attackedPlayer() for on killing,
+          // as sceneEntityDamageByEntityEvent() could change the targets HP and mess with the intended logic.
+          // TLDR: The problem with putting this before is this doesn't have the scene's potential custom damage handling.
+          // Fixed for now with CustomDamage::calculateFinalDamageWithoutCrits(), this is probably good enough to call that function in behavior components.
+          $damager->getEventBehaviorComponentManager()?->attackedPlayer($event, $player);
         }
 
         // then do the actual real events
         $player->event($event, BehaviorEventEnums::ENTITY_DAMAGE_BY_ENTITY_EVENT);
         if ($event->isCancelled()) return;
-        $player->getSceneHelper()?->getScene()->sceneEntityDamageByEntityEvent($event, $player);
+        $player->getSceneHelper()?->getScene()?->sceneEntityDamageByEntityEvent($event, $player);
       }
     } else { // check if just generic damage like fall damage for example
       $player = $event->getEntity();
       if ($player instanceof SwimPlayer) {
         $player->event($event, BehaviorEventEnums::ENTITY_DAMAGE_EVENT);
         if ($event->isCancelled()) return;
-        $player->getSceneHelper()?->getScene()->sceneEntityDamageEvent($event, $player);
+        $player->getSceneHelper()?->getScene()?->sceneEntityDamageEvent($event, $player);
       }
     }
   }
+
+  /* disabled because this removes a major optimization with item stacks in the world by mutating data
+  public function onItemSpawn(ItemSpawnEvent $event)
+  {
+    $itemEntity = $event->getEntity();
+    $pos = $itemEntity->getPosition();
+    $nearest = PositionHelper::getNearestPlayer($pos); // nearest player's scene (this is only going to work well for scenes that are seperated far away)
+    if ($nearest) {
+      $scene = $nearest->getSceneHelper()?->getScene() ?? null;
+      if ($scene instanceof PvP) { // only pvp scenes have an item manager, this could be seen as a design flaw, but almost all our scenes derive from pvp anyway
+        $scene->getDroppedItemManager()->addDroppedItem($itemEntity);
+      }
+    }
+  }
+
+  public function onDespawn(EntityDespawnEvent $event)
+  {
+    $entity = $event->getEntity();
+    if ($entity instanceof ItemEntity) {
+      $pos = $entity->getPosition();
+      $nearest = PositionHelper::getNearestPlayer($pos);
+      if ($nearest) {
+        $scene = $nearest->getSceneHelper()?->getScene() ?? null;
+        if ($scene instanceof PvP) {
+          $scene->getDroppedItemManager()->removeDroppedItem($entity);
+        }
+      }
+    }
+  }
+  */
 
   public function itemDropCallback(PlayerDropItemEvent $event)
   {
@@ -209,9 +238,27 @@ class PlayerListener implements Listener
     $player->getSceneHelper()?->getScene()->sceneInventoryUseEvent($event, $player);
   }
 
+  public function onCraft(CraftItemEvent $event): void
+  {
+    $player = $event->getPlayer();
+    if ($player instanceof SwimPlayer) {
+      if (!$player->getSceneHelper()?->getScene()?->allowCrafting() ?? false) {
+        $event->cancel();
+        if (SwimCore::$DEBUG) echo("Cancelling crafting\n");
+      }
+    }
+  }
+
   public function chestOpenEvent(PlayerInteractEvent $event): void
   {
     $id = $event->getBlock()->getTypeId();
+
+    // hard code disable opening furnaces
+    if ($id == BlockTypeIds::FURNACE) {
+      $event->cancel();
+      return;
+    }
+
     if ($id == BlockTypeIds::CHEST || $id == BlockTypeIds::ENDER_CHEST || $id == BlockTypeIds::TRAPPED_CHEST) {
       /* @var SwimPlayer $player */
       $player = $event->getPlayer();
@@ -404,15 +451,17 @@ class PlayerListener implements Listener
     $sp->getSceneHelper()?->getScene()->scenePlayerJumpEvent($event, $sp);
   }
 
-  // lag causer possibly, we do need this though but only for behavior components
+  // lag causer possibly, we might need this though but only for behavior components
+  /*
   public function dataPacketReceiveEvent(DataPacketReceiveEvent $event)
   {
     $player = $event->getOrigin()->getPlayer();
     if ($player instanceof SwimPlayer && $player->isOnline()) {
-      $player->event($event, BehaviorEventEnums::DATA_PACKET_RECEIVE_EVENT); // behavior components like double jump need this, we should optimize this more
-      // if ($event->isCancelled()) return;
-      // $player->getSceneHelper()?->getScene()->sceneDataPacketReceiveEvent($event, $player); // disabled for performance
+      $player->event($event, BehaviorEventEnums::DATA_PACKET_RECEIVE_EVENT);
+      if ($event->isCancelled()) return;
+      $player->getSceneHelper()?->getScene()->sceneDataPacketReceiveEvent($event, $player);
     }
   }
+  */
 
 }

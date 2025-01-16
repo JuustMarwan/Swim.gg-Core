@@ -17,13 +17,14 @@ class HubCmd extends Command
 
   public function __construct(SwimCore $core)
   {
-    parent::__construct("hub", "Teleport to hub!");
+    parent::__construct("hub", "Teleport to hub!", null, ["ff", "spawn", "die"]);
     $this->core = $core;
     $this->setPermission("use.all");
   }
 
   /**
-   * @throws ScoreFactoryException|JsonException
+   * @throws ScoreFactoryException
+   * @throws JsonException
    */
   public function execute(CommandSender $sender, string $commandLabel, array $args): bool
   {
@@ -53,7 +54,6 @@ class HubCmd extends Command
       }
 
       // set the scene to Hub
-      $sh->getScene()->playerElimination($sender);
       $sh->setNewScene('Hub');
       $sender->sendMessage("§7Teleporting to hub...");
     }

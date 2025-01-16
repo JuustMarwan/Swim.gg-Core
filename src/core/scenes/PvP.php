@@ -9,6 +9,7 @@ use core\systems\scene\managers\BlocksManager;
 use core\systems\scene\managers\DroppedItemManager;
 use core\systems\scene\Scene;
 use core\utils\ServerSounds;
+use core\utils\StackTracer;
 use pocketmine\entity\Entity;
 use pocketmine\entity\object\ItemEntity;
 use pocketmine\entity\projectile\Arrow as ArrowEntity;
@@ -31,19 +32,24 @@ use pocketmine\utils\TextFormat;
 abstract class PvP extends Scene
 {
 
-  protected float $vertKB;
-  protected float $kb;
-  protected int $hitCoolDown; // in ticks
-  protected float $pearlKB;
-  protected float $snowballKB;
-  protected float $rodKB;
-  protected float $arrowKB;
-  protected float $pearlSpeed;
-  protected float $pearlGravity;
+  public float $vertKB;
+  public float $kb;
+  public float $controllerVertKB;
+  public float $controllerKB;
+  public int $hitCoolDown; // in ticks
+  public float $pearlKB;
+  public float $snowballKB;
+  public float $rodKB;
+  public float $arrowKB;
+  public float $pearlSpeed;
+  public float $pearlGravity;
 
-  protected bool $naturalRegen;
-  protected bool $fallDamage;
+  public bool $naturalRegen;
+  public bool $fallDamage;
   protected bool $voidDamage;
+
+  public bool $tntBreaksBlocks = false;
+  public bool $canThrowTnt = true;
 
   protected BlocksManager $blocksManager;
   protected DroppedItemManager $droppedItemManager;
@@ -57,6 +63,8 @@ abstract class PvP extends Scene
 
     $this->vertKB = 0.4;
     $this->kb = 0.4;
+    $this->controllerVertKB = 0.4;
+    $this->controllerKB = 0.4;
     $this->hitCoolDown = 10;
     $this->pearlKB = 0.6;
     $this->snowballKB = 0.5;
@@ -190,8 +198,6 @@ abstract class PvP extends Scene
           $event->cancel();
           // scripting event callback
           $this->playerDiedToChildEntity($event, $swimPlayer, $attacker, $child);
-          // and handle death
-          $this->defaultDeathHandle($attacker, $swimPlayer);
         }
       }
     }
@@ -201,6 +207,7 @@ abstract class PvP extends Scene
   protected function playerDiedToChildEntity(EntityDamageByChildEntityEvent $event, SwimPlayer $victim, SwimPlayer $attacker, Entity $childEntity): void
   {
     echo("WARNING | " . $this->sceneName . " DID NOT HANDLE CHILD ENTITY KILL ON PLAYER " . $victim->getName() . "\n");
+    if (SwimCore::$DEBUG) StackTracer::PrintStackTrace();
   }
 
   // optional override

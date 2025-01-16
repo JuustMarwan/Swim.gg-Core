@@ -10,11 +10,9 @@ use pocketmine\utils\TextFormat;
 class FormFFA
 {
 
-  // Constants for arena types
-  private const SG_KITS_FFA = 0;
-  private const NODEBUFF_FFA = 1;
-  private const MIDFIGHT_FFA = 2;
-  private const SKYWARS_FFA = 3;
+  // Constants for arena types (not the most scalable code in the world)
+  private const NODEBUFF_FFA = 0;
+  private const MIDFIGHT_FFA = 1;
 
   /**
    * Displays a selection form for FFA arenas to a player.

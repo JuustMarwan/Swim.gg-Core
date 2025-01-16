@@ -3,6 +3,7 @@
 namespace core\utils;
 
 // this class is some slight tomfoolery
+// I don't even remember the purpose of this (I think xbox ign generation for nicks?)
 class Words
 {
 

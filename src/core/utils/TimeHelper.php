@@ -39,6 +39,7 @@ class TimeHelper
       'd' => 'day',
       'h' => 'hour',
       'i' => 'minute',
+      's' => 'second',
     ];
     $formatted = [];
     foreach ($formatArray as $timeElement => $timeString) {

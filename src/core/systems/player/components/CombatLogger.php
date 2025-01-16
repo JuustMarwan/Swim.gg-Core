@@ -73,7 +73,15 @@ class CombatLogger extends Component
   // returns if attack was processed through
   public function handleAttack(SwimPlayer $victim): bool
   {
+    if (SwimCore::$DEBUG) {
+      echo($victim->getName() . " attacked by " . $this->swimPlayer->getName() . "\n");
+    }
+
     if ($this->canAttack($victim)) {
+      if (SwimCore::$DEBUG) {
+        echo($this->swimPlayer->getName() . " attack registered on " . $victim->getName(). "\n");
+      }
+
       $this->logAttack($victim);
       $victim->getCombatLogger()->logDamage($this->swimPlayer);
       return true;
