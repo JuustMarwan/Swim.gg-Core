@@ -25,7 +25,7 @@ class SmoothPrimedTNT extends PrimedTNT
 
   use DeltaSupportTrait;
 
-  private int $maxFuse;
+  public int $maxFuse;
 
   public static function getNetworkTypeId(): string
   {
@@ -111,8 +111,8 @@ class SmoothPrimedTNT extends PrimedTNT
     parent::setFuse($fuse);
   }
 
-  /* this doesn't work for some reason
-  public function onUpdate(int $currentTick): bool
+  // I am not sure if that would fix it (still learning)
+  public function entityBaseTick(int $tickDiff = 1): bool
   {
     // Retrieve the remaining fuse time in ticks
     $currentFuse = $this->getFuse(); // Assuming this returns remaining ticks
@@ -120,7 +120,7 @@ class SmoothPrimedTNT extends PrimedTNT
     // Prevent division by zero
     if ($this->maxFuse <= 0) {
       $this->setNameTag(TextFormat::RED . "0.00");
-      return parent::onUpdate($currentTick);
+      return parent::onUpdate($tickDiff);
     }
 
     // Convert remaining ticks to seconds with two decimal points
@@ -130,7 +130,7 @@ class SmoothPrimedTNT extends PrimedTNT
     // Determine the color based on remaining fuse time
     if ($currentFuse > ($this->maxFuse / 2)) {
       $color = TextFormat::GREEN;
-    } elseif ($currentFuse > ($this->maxFuse / 3)) {
+    } else if ($currentFuse > ($this->maxFuse / 3)) {
       $color = TextFormat::YELLOW;
     } else {
       $color = TextFormat::RED;
@@ -146,8 +146,7 @@ class SmoothPrimedTNT extends PrimedTNT
     $this->setNameTag($color . $formattedSeconds . "s");
 
     // Continue with the parent onUpdate method
-    return parent::onUpdate($currentTick);
+    return parent::onUpdate($tickDiff);
   }
-  */
 
 }
