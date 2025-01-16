@@ -120,7 +120,7 @@ class SmoothPrimedTNT extends PrimedTNT
     // Prevent division by zero
     if ($this->maxFuse <= 0) {
       $this->setNameTag(TextFormat::RED . "0.00");
-      return parent::onUpdate($tickDiff);
+      return parent::entityBaseTick($tickDiff);
     }
 
     // Convert remaining ticks to seconds with two decimal points
@@ -144,9 +144,13 @@ class SmoothPrimedTNT extends PrimedTNT
 
     // Set the name tag with color and remaining seconds
     $this->setNameTag($color . $formattedSeconds . "s");
+    $this->setNameTagVisible();
+    //You Can Disable Always Visible If Error Happends
+    $this->setNameTagAlwaysVisible();
 
-    // Continue with the parent onUpdate method
-    return parent::onUpdate($tickDiff);
+    //Also You Need To Test This As I'm Not Sure If It Works.
+    //And You Can revert it back if the custom explode function doesn't happen
+    return parent::entityBaseTick($tickDiff);
   }
 
 }
