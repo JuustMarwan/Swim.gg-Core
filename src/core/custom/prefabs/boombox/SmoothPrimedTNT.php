@@ -18,6 +18,7 @@ use pocketmine\network\mcpe\protocol\types\entity\EntityMetadataProperties;
 use pocketmine\network\mcpe\protocol\types\entity\PropertySyncData;
 use pocketmine\player\Player;
 use pocketmine\world\Position;
+use pocketmine\utils\TextFormat;
 use function array_map;
 
 class SmoothPrimedTNT extends PrimedTNT
@@ -115,7 +116,7 @@ class SmoothPrimedTNT extends PrimedTNT
   public function entityBaseTick(int $tickDiff = 1): bool
   {
     // Retrieve the remaining fuse time in ticks
-    $currentFuse = $this->getFuse(); // Assuming this returns remaining ticks
+    $currentFuse = $this->fuse; // Assuming this returns remaining ticks
 
     // Prevent division by zero
     if ($this->maxFuse <= 0) {
