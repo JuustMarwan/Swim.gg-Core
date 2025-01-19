@@ -87,6 +87,7 @@ class SwimPlayer extends Player
   private Vector3 $exactPosition;
   private int $ticksSinceLastTeleport = 0;
   private int $ticksSinceLastMotionSet = 0;
+  private int $ticksSinceLastGameModeChange = 0;
 
   private ?Position $previousPositionBeforeTeleport = null;
 
@@ -206,6 +207,7 @@ class SwimPlayer extends Player
     $this->eventBehaviorComponentManager->updateTick();
     $this->ticksSinceLastTeleport++;
     $this->ticksSinceLastMotionSet++;
+    $this->ticksSinceLastGameModeChange++;
   }
 
   public function updateSecond(): void
@@ -448,6 +450,7 @@ class SwimPlayer extends Player
 
     // tell the anti cheat we changed game mode, so we can handle when needed
     $this->antiCheatData?->changedGameMode();
+    $this->ticksSinceLastGameModeChange = 0;
 
     return $value;
   }
@@ -717,6 +720,11 @@ class SwimPlayer extends Player
   public function resetTicksSinceMotionArtificiallySet(): void
   {
     $this->ticksSinceLastMotionSet = 0;
+  }
+
+  public function getTicksSinceLastGameModeChange(): int
+  {
+    return $this->ticksSinceLastGameModeChange;
   }
 
   public function getComponents(): array

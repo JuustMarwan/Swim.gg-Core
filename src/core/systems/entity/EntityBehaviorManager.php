@@ -63,19 +63,19 @@ class EntityBehaviorManager
     }
   }
 
-  public function addBehavior(Behavior $behavior): void
+  public function addBehavior(Behavior $behavior, string $name): void
   {
-    $this->behaviorMap[Behavior::class] = $behavior;
+    $this->behaviorMap[$name] = $behavior;
   }
 
-  public function hasBehavior(string $className): bool
+  public function hasBehavior(string $name): bool
   {
-    return isset($this->behaviorMap[$className]);
+    return isset($this->behaviorMap[$name]);
   }
 
-  public function getBehavior(string $className): ?Behavior
+  public function getBehavior(string $name): ?Behavior
   {
-    return $this->behaviorMap[$className] ?? null;
+    return $this->behaviorMap[$name] ?? null;
   }
 
 }

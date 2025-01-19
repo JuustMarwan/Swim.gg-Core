@@ -5,6 +5,7 @@ namespace core\listeners;
 use core\database\queries\ConnectionHandler;
 use core\scenes\PvP;
 use core\SwimCore;
+use core\systems\entity\entities\EasierPickUpItemEntity;
 use core\systems\player\PlayerSystem;
 use core\systems\player\SwimPlayer;
 use core\systems\SystemManager;
@@ -23,6 +24,7 @@ use pocketmine\event\entity\EntityItemPickupEvent;
 use pocketmine\event\entity\EntityRegainHealthEvent;
 use pocketmine\event\entity\EntitySpawnEvent;
 use pocketmine\event\entity\EntityTeleportEvent;
+use pocketmine\event\entity\ItemSpawnEvent;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
 use pocketmine\event\entity\ProjectileHitEvent;
 use pocketmine\event\entity\ProjectileLaunchEvent;
@@ -175,10 +177,17 @@ class PlayerListener implements Listener
     }
   }
 
-  /* disabled because this removes a major optimization with item stacks in the world by mutating data
   public function onItemSpawn(ItemSpawnEvent $event)
   {
     $itemEntity = $event->getEntity();
+    if (!($itemEntity instanceof EasierPickUpItemEntity)) {
+      if (SwimCore::$DEBUG) echo("Making new easy item for {$itemEntity->getItem()->getName()} \n");
+      $easy = new EasierPickUpItemEntity($itemEntity->getLocation(), $itemEntity->getItem(), $itemEntity->saveNBT());
+      $easy->spawnToAll();
+      $itemEntity->flagForDespawn();
+    }
+
+    /* old dropped item manager code we don't use due to the optimization it screws up with item stacks
     $pos = $itemEntity->getPosition();
     $nearest = PositionHelper::getNearestPlayer($pos); // nearest player's scene (this is only going to work well for scenes that are seperated far away)
     if ($nearest) {
@@ -187,8 +196,10 @@ class PlayerListener implements Listener
         $scene->getDroppedItemManager()->addDroppedItem($itemEntity);
       }
     }
+    */
   }
 
+  /* disabled because this removes a major optimization with item stacks in the world by mutating data
   public function onDespawn(EntityDespawnEvent $event)
   {
     $entity = $event->getEntity();

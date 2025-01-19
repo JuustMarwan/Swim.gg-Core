@@ -167,6 +167,16 @@ abstract class Duel extends PvP
         return;
       }
 
+      // fix spectator hits exploit where they hit you the same tick they change game mode back to survival from spectator,
+      // due to the teleport not registering on the client yet
+      if ($attacker->getTicksSinceLastGameModeChange() < 10) {
+        $event->cancel();
+        if (SwimCore::$DEBUG) {
+          echo("Spectator exploit patched!\n");
+        }
+        return;
+      }
+
       $vKB = $this->vertKB;
       $kb = $this->kb;
 
