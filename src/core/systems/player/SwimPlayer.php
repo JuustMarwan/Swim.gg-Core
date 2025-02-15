@@ -617,7 +617,7 @@ class SwimPlayer extends Player
    */
   public function transfer(string $address, int $port = 19132, string|Translatable|null $message = null): bool
   {
-    if (SwimCore::$isNetherGames) {
+    if (SwimCore::$isNetherGames && SwimCore::$blobCacheOn) {
       (new ReflectionClass(NetworkSession::class))->getProperty("chunkCacheBlobs")->setValue($this->getNetworkSession(), []);
     }
     return parent::transfer($address, $port, $message);

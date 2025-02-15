@@ -14,6 +14,7 @@ use core\utils\loaders\CommandLoader;
 use core\utils\config\ConfigMapper;
 use core\utils\config\RegionInfo;
 use core\utils\config\SwimConfig;
+use core\utils\loaders\CustomItemLoader;
 use core\utils\raklib\SwimRakLibInterface;
 use core\utils\security\IpParse;
 use core\utils\loaders\WorldLoader;
@@ -54,7 +55,7 @@ class SwimCore extends PluginBase
   public static string $customDataFolder;
   public static bool $isNetherGames = false;
   public bool $shuttingDown = false;
-  public bool $blobCacheOn = true;
+  public static bool $blobCacheOn = true;
   public bool $deltaOn = false;
 
   private SystemManager $systemManager;
@@ -104,6 +105,9 @@ class SwimCore extends PluginBase
     // set up the command loader and load the commands we want and don't want
     $this->commandLoader = new CommandLoader($this);
     $this->commandLoader->setUpCommands();
+
+    // Load all of our custom items and vanilla replacements and removals too for edu items
+    CustomItemLoader::registerCustoms();
 
     // set the database connection
     SwimDB::initialize($this);

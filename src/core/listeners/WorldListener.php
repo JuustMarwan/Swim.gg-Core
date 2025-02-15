@@ -370,7 +370,6 @@ class WorldListener implements Listener
   }
 
   /**
-   * @throws ReflectionException
    * @throws Exception
    */
   public function onDataPacketSend(DataPacketSendEvent $event): void
@@ -395,9 +394,11 @@ class WorldListener implements Listener
           $this->handleStartGamePacket($packet, $event, $key);
           break;
 
-        case CreativeContentPacket::NETWORK_ID:
-          $this->handleCreativeContentPacket($packet, $event, $key);
-          break;
+        /* Deprecated, see CustomItemLoader
+      case CreativeContentPacket::NETWORK_ID:
+        $this->handleCreativeContentPacket($packet, $event, $key);
+        break;
+        */
 
         case SetPlayerGameTypePacket::NETWORK_ID:
           $this->handleSetPlayerGameTypePacket($packet, $event, $key);
@@ -502,11 +503,12 @@ class WorldListener implements Listener
 
   /**
    * Handles the CreativeContentPacket.
-   * @throws ReflectionException
+   * @deprecated See CustomItemLoader
    */
   private function handleCreativeContentPacket($packet, $event, $key): void
   {
     /** @var CreativeContentPacket $packet */
+    /*
     $entries = $packet->getEntries();
     for ($i = 0; $i < count($entries); $i++) {
       if (isset($entries[$i]) && in_array($entries[$i]->getItem()->getId(),
@@ -519,6 +521,7 @@ class WorldListener implements Listener
     $property = $reflection->getProperty("entries");
     $property->setAccessible(true); // not sure why phpstorm throws a fit over this
     $property->setValue($packet, $entries);
+    */
   }
 
   /**
