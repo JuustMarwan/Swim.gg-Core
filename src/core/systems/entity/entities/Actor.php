@@ -362,6 +362,7 @@ class Actor extends Living
           AbilitiesLayer::LAYER_BASE,
           array_fill(0, AbilitiesLayer::NUMBER_OF_ABILITIES, false),
           0.0,
+          0.0,
           0.0
         )
       ])),
@@ -464,9 +465,11 @@ class Actor extends Living
    */
   public function sendSkin(?array $targets = null): void
   {
+    /* let's hope this wasn't mission-critical code since ProtocolInfo doesn't have this const anymore (at least in NGPM)
     if ($this instanceof Player && $this->getNetworkSession()->getProtocolId() === ProtocolInfo::PROTOCOL_1_19_60) {
       $targets = array_diff($targets ?? $this->hasSpawned, [$this]);
     }
+    */
 
     TypeConverter::broadcastByTypeConverter($targets ?? $this->hasSpawned, function (TypeConverter $typeConverter): array {
       return [
