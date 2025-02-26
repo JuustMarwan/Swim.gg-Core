@@ -18,6 +18,7 @@ use core\utils\loaders\CustomItemLoader;
 use core\utils\raklib\SwimRakLibInterface;
 use core\utils\security\IpParse;
 use core\utils\loaders\WorldLoader;
+use core\utils\VoidGenerator;
 use CortexPE\Commando\exception\HookAlreadyRegistered;
 use JsonException;
 use muqsit\invmenu\InvMenuHandler;
@@ -37,6 +38,7 @@ use pocketmine\utils\Config;
 use pocketmine\utils\ServerKiller;
 use pocketmine\utils\SignalHandler;
 use pocketmine\utils\TextFormat;
+use pocketmine\world\generator\GeneratorManager;
 use pocketmine\world\World;
 use ReflectionException;
 use Symfony\Component\Filesystem\Path;
@@ -203,6 +205,9 @@ class SwimCore extends PluginBase
   {
     // set up asset and data folder
     $this->setDataAssetFolderPaths();
+
+    // register the void generator SwimCore has built in
+    GeneratorManager::getInstance()->addGenerator(VoidGenerator::class, "void", fn() => null, true);
   }
 
   // close the connection to the database
